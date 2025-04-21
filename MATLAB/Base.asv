@@ -1,0 +1,18 @@
+classdef Base
+    properties
+        x = 0
+        y = 0
+        drones % a list of drones from this base
+    end
+
+    methods
+        function obj = Base(x, y)
+            obj.x = x;
+            obj.y = y;
+        end
+
+        function addDrone(drone)
+            obj
+        end
+    end
+end
