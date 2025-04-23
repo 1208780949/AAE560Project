@@ -7,8 +7,8 @@ close all
 % ---------------------
 
 % fire spread need to be simulated in in a discretized domain
-fireGridX = 1000; % number of grid points in x direction
-fireGridY = 1000; % number of grid points in y direction
+fireGridX = 100; % number of grid points in x direction
+fireGridY = 100; % number of grid points in y direction
 
 mapSizeX = 20000; % m
 mapSizeY = 20000; % m
@@ -55,16 +55,17 @@ for i = 1:numBases
     end
 end
 
-fireStartX = rand(1,1) * mapSizeX;
-fireStartY = rand(1,1) * mapSizeY;
-fireStartTemp = rand(1,1) * 2000;
-fire = Fire(fireStartX, fireStartY, fireStartTemp, fireGridX, fireGridY);
+fireStartX = rand(1,1) * mapSizeX; % fire start location x, can be size (1,[1,inf))
+fireStartY = rand(1,1) * mapSizeY; % fire start location y, can be size (1,[1,inf))
+fire = Fire(fireStartX, fireStartY, fireGridX, fireGridY, mapSizeX, mapSizeY, timeStep);
 
 % --------------------
 %  running simulation
 % --------------------
 
 for i = timeStep:timeStep:finalTime
+
+    fire.fireSpread();
 
     if fire.getNumPoint == 0
         % fire extinguished
@@ -89,8 +90,8 @@ for i = timeStep:timeStep:finalTime
     end
     
     for i = 1:fire.getNumPoint
-        x = fire.x(i);
-        y = fire.y(i);
+        x = fire.firePoints(1,i);
+        y = fire.firePoints(2,i);
     
         xCenter = gridResX * x;
         yCenter = gridResY * y;
