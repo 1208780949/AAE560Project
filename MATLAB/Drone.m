@@ -1,4 +1,12 @@
 classdef Drone < handle
+    % drones are assumed to be Alta X
+    % They are already in use for aerial ignition with US Forest Service
+    % https://www.fs.usda.gov/inside-fs/delivering-mission/deliver/drones-help-make-fighting-fires-safer-cheaper-better
+    %
+    % max payload: 15.9 kg
+    % flight time at max payload: 10.75 minutes
+    % flight time when empty: 50 minutes
+
     properties
         x = 0;
         y = 0;
@@ -51,6 +59,8 @@ classdef Drone < handle
                 % update position
                 obj.x = newX;
                 obj.y = newY;
+            elseif obj.status == "extinguish"
+
             end
         end
 

@@ -58,7 +58,7 @@ classdef Fire < handle
 
         function fireSpread(obj)
             % Fire spread simulation is modified based on an ABM approach as
-            % suggested by https://ieeexplore.ieee.org/abstract/document/10132476.
+            % used by https://ieeexplore.ieee.org/abstract/document/10132476.
             % This paper does not claim the accuracy of the model, but
             % it's simply enough for the purpose of modeling firefighting
             % drones.
