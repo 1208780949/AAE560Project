@@ -42,9 +42,9 @@ classdef Fire < handle
             % increases to keep spread rate consistent.
             % If grid size is large, spread probability proportionately
             % reduces to keep spread rate consistent.
-            obj.spreadProbX = timeStep * obj.fireSpreadRate / obj.gridResX * 100;
-            obj.spreadProbY = timeStep * obj.fireSpreadRate / obj.gridResY * 100;
-            obj.spreadProbDiag = timeStep * obj.fireSpreadRate / sqrt(obj.gridResX^2 + obj.gridResY^2) * 100;
+            obj.spreadProbX = timeStep * obj.fireSpreadRate / obj.gridResX;
+            obj.spreadProbY = timeStep * obj.fireSpreadRate / obj.gridResY;
+            obj.spreadProbDiag = timeStep * obj.fireSpreadRate / sqrt(obj.gridResX^2 + obj.gridResY^2);
 
             % grid generation and inserting initial fire
             obj.grid = zeros(gridPtsY, gridPtsX);
@@ -171,6 +171,10 @@ classdef Fire < handle
             % likely
             obj.firePoints = prospFire;
             obj.grid = prospGrid;
+        end
+    
+        function center = getGridCenterPoint(obj, x, y)
+            center = [x * obj.gridResX, y * obj.gridResY];
         end
     end
 end

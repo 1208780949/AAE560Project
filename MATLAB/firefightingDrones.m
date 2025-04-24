@@ -39,7 +39,7 @@ for i = 1:numBases
 
     % generating drones
     for j = 1:numDronesPerBase
-        drones(j) = Drone(droneSpd);
+        drones(j) = Drone(droneSpd, timeStep);
     end
 
     % generating base
@@ -59,6 +59,8 @@ fireStartX = rand(1,1) * mapSizeX; % fire start location x, can be size (1,[1,in
 fireStartY = rand(1,1) * mapSizeY; % fire start location y, can be size (1,[1,inf))
 fire = Fire(fireStartX, fireStartY, fireGridX, fireGridY, mapSizeX, mapSizeY, timeStep);
 
+base.setFire(fire)
+
 % --------------------
 %  running simulation
 % --------------------
@@ -66,6 +68,12 @@ fire = Fire(fireStartX, fireStartY, fireGridX, fireGridY, mapSizeX, mapSizeY, ti
 for i = timeStep:timeStep:finalTime
 
     fire.fireSpread();
+    for j = 1:numBases
+        bases(j).update()
+        for k = 1:length(bases(j).activeDrones)
+            bases(j).activeDrones(k).update();
+        end
+    end
 
     if fire.getNumPoint == 0
         % fire extinguished
@@ -81,17 +89,24 @@ for i = timeStep:timeStep:finalTime
     % -----------
     
     figure(1)
+    clf
     hold on
     xlim([0 mapSizeX])
     ylim([0 mapSizeY])
 
-    for i = 1:numBases
-        plot(bases(i).x, bases(i).y, "o", "Color", "blue", "MarkerSize", 5)
+    for j = 1:numBases
+        
+        plot(bases(j).x, bases(j).y, "o", "Color", "blue", "MarkerSize", 5)
+        
+        for k = 1:length(bases(j).activeDrones)
+            drone = bases(j).activeDrones(k);
+            plot(drone.x, drone.y, "x", "Color", "black", "MarkerSize", 2)
+        end
     end
 
-    for i = 1:fire.getNumPoint
-        x = fire.firePoints(1,i);
-        y = fire.firePoints(2,i);
+    for j = 1:fire.getNumPoint
+        x = fire.firePoints(1,j);
+        y = fire.firePoints(2,j);
 
         xCenter = gridResX * x;
         yCenter = gridResY * y;
