@@ -31,8 +31,8 @@ etaWater = 0.7; % water application efficiency
 lv = 104.98; % enthalpy of water at 25C in kg/kj
 mcr = mcr0 + q / (etaWater * lv); % critical water application rate in kg/m2/s
 
-% assuming 40 m^2 grid
-mcrGrid = mcr * 40;
+% assuming 10000 m^2 grid
+mcrGrid = mcr * 10000;
 
 % assume the drones can delivery their payload in 10s
 mWater = mcrGrid * 10;

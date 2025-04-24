@@ -1,6 +1,8 @@
 classdef Fire < handle
     properties
         firePoints = [] % list of fire grid point
+        domainX % size of the domain in x in m
+        domainY % size of the domain in y in m
         gridPtsX % number of grid points in x
         gridPtsY % number of grid points in y
         gridResX % distance per cell in x in m
@@ -25,6 +27,8 @@ classdef Fire < handle
         % domainY: size of the domain in y in meters
         % timeStep: time step size in s
         function obj = Fire(x, y, gridPtsX, gridPtsY, domainX, domainY, timeStep)
+            obj.domainX = domainX;
+            obj.domainY = domainY;
             obj.gridPtsX = gridPtsX;
             obj.gridPtsY = gridPtsY;
             obj.timeStep = timeStep;
@@ -48,7 +52,7 @@ classdef Fire < handle
 
             % grid generation and inserting initial fire
             obj.grid = zeros(gridPtsY, gridPtsX);
-            obj.grid(gridPtsY - round(y ./ domainY * gridPtsY), round(x ./ domainY * gridPtsY))
+            obj.grid(round(y ./ domainY * gridPtsY), round(x ./ domainY * gridPtsY)) = 1;
         end
 
         % return the number of grid points the fire occupies
@@ -175,6 +179,23 @@ classdef Fire < handle
     
         function center = getGridCenterPoint(obj, x, y)
             center = [x * obj.gridResX, y * obj.gridResY];
+        end
+
+        % fire extinguished
+        % x: x position of the center of the grid in m
+        % y: y position of the center of the grid in m
+        function extinguish(obj, x, y)
+            gridX = round(x / obj.domainX * obj.gridPtsX);
+            gridY = round(y / obj.domainY * obj.gridPtsY);
+
+            obj.grid(gridY, gridX) = 0;
+            for i = 1:length(obj.firePoints(1,:))
+                col = obj.firePoints(:,i);
+                if col == [gridX; gridY]
+                    obj.firePoints(:,i) = [];
+                    break
+                end
+            end
         end
     end
 end

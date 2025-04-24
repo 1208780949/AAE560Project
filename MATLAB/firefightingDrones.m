@@ -6,17 +6,22 @@ close all
 %  simulation settings
 % ---------------------
 
+% do not change grid size or domain size without updating drone cluster
+% size
+%
 % fire spread need to be simulated in in a discretized domain
 fireGridX = 100; % number of grid points in x direction
 fireGridY = 100; % number of grid points in y direction
 
-mapSizeX = 20000; % m
-mapSizeY = 20000; % m
+% size of domain
+mapSizeX = 10000; % m
+mapSizeY = 10000; % m
 
 numBases = 1; % number of bases
 numDronesPerBase = 10; % number of drones per base
 
-droneSpd = 50; % drone speed in m/s
+droneSpd = 20; % drone speed in m/s
+extinguishTime = 10; % 10 s to extinguish fire at a grid point
 
 randNumber = rng(45325405, "twister"); % random number generator to make things repeatable
 
@@ -39,7 +44,7 @@ for i = 1:numBases
 
     % generating drones
     for j = 1:numDronesPerBase
-        drones(j) = Drone(droneSpd, timeStep);
+        drones(j) = Drone(droneSpd, timeStep, extinguishTime);
     end
 
     % generating base
@@ -69,7 +74,7 @@ for i = timeStep:timeStep:finalTime
 
     fire.fireSpread();
     for j = 1:numBases
-        bases(j).update()
+        bases(j).update(i)
         for k = 1:length(bases(j).activeDrones)
             bases(j).activeDrones(k).update();
         end
@@ -94,16 +99,6 @@ for i = timeStep:timeStep:finalTime
     xlim([0 mapSizeX])
     ylim([0 mapSizeY])
 
-    for j = 1:numBases
-        
-        plot(bases(j).x, bases(j).y, "o", "Color", "blue", "MarkerSize", 5)
-        
-        for k = 1:length(bases(j).activeDrones)
-            drone = bases(j).activeDrones(k);
-            plot(drone.x, drone.y, "x", "Color", "black", "MarkerSize", 2)
-        end
-    end
-
     for j = 1:fire.getNumPoint
         x = fire.firePoints(1,j);
         y = fire.firePoints(2,j);
@@ -116,6 +111,16 @@ for i = timeStep:timeStep:finalTime
         yf = yCenter + halfGridResY;
 
         fill([xi xf xf xi], [yi yi yf yf], "r")
+    end
+
+    for j = 1:numBases
+        
+        plot(bases(j).x, bases(j).y, "o", "Color", "blue", "MarkerSize", 5)
+        
+        for k = 1:length(bases(j).activeDrones)
+            drone = bases(j).activeDrones(k);
+            plot(drone.x, drone.y, "x", "Color", "black", "MarkerSize", 3)
+        end
     end
 
     pbaspect([1 1 1])
