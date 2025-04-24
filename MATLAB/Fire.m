@@ -6,6 +6,7 @@ classdef Fire < handle
         gridResX % distance per cell in x in m
         gridResY % distance per cell in y in m
         timeStep % size of time step in s
+        grid % the grid of fire. 1 is on fire, 0 is not on fire
 
         % fire spread rate is based on:
         % https://ieeexplore.ieee.org/abstract/document/10416753?casa_token=6eWDrxQJJHAAAAAA:CEOCSbMLGT7UQrlsp3Gd5ybTtXECO3UZy2Qw3PyliRYWEVJHOle7f9_3I2cFqnd1LLpvKWLScIw
@@ -41,9 +42,13 @@ classdef Fire < handle
             % increases to keep spread rate consistent.
             % If grid size is large, spread probability proportionately
             % reduces to keep spread rate consistent.
-            obj.spreadProbX = timeStep * obj.fireSpreadRate / obj.gridResX;
-            obj.spreadProbY = timeStep * obj.fireSpreadRate / obj.gridResY;
-            obj.spreadProbDiag = timeStep * obj.fireSpreadRate / sqrt(obj.gridResX^2 + obj.gridResY^2);
+            obj.spreadProbX = timeStep * obj.fireSpreadRate / obj.gridResX * 100;
+            obj.spreadProbY = timeStep * obj.fireSpreadRate / obj.gridResY * 100;
+            obj.spreadProbDiag = timeStep * obj.fireSpreadRate / sqrt(obj.gridResX^2 + obj.gridResY^2) * 100;
+
+            % grid generation and inserting initial fire
+            obj.grid = zeros(gridPtsY, gridPtsX);
+            obj.grid(gridPtsY - round(y ./ domainY * gridPtsY), round(x ./ domainY * gridPtsY))
         end
 
         % return the number of grid points the fire occupies
@@ -64,73 +69,99 @@ classdef Fire < handle
             %    spread rate.
 
             prospFire = obj.firePoints; % all fire locations after combining the new ones
+            prospGrid = obj.grid; 
 
             for i = 1:length(obj.firePoints(1,:))
                 rn = rand(1,8); % rng used to decide fire spread
 
-                thisX = obj.firePoints(1, i);
-                thisY = obj.firePoints(2, i);
+                xThis = obj.firePoints(1, i);
+                yThis = obj.firePoints(2, i);
 
-                xLeft = thisX - 1;
-                xRight = thisX + 1;
-                yTop = thisY + 1;
-                yBottom = thisY - 1;
+                xLeft = xThis - 1;
+                xRight = xThis + 1;
+                yTop = yThis - 1;
+                yBottom = yThis + 1;
 
                 % grid point to the right
-                if thisX < obj.gridPtsX
-                    if rn(1) <= obj.spreadProbX && ~obj.hasExistingFire(prospFire, xRight, thisY)
-                        prospFire = [prospFire, [xRight; thisY]];
-                    end
-
-                    % grid point to the top right
-                    if thisY < obj.gridPtsY 
-                        if rn(2) <= obj.spreadProbDiag && ~obj.hasExistingFire(prospFire, xRight, yTop)
-                            prospFire = [prospFire, [xRight; yTop]];
+                if rn(1) <= obj.spreadProbX
+                    if xThis < obj.gridPtsX
+                        if prospGrid(yThis, xRight) == 0
+                            prospFire = [prospFire, [xRight; yThis]];
+                            prospGrid(yThis, xRight) = 1;
                         end
                     end
+                end
 
-                    % grid point to the bottom right
-                    if thisY > 1
-                        if rn(3) <= obj.spreadProbDiag && ~obj.hasExistingFire(prospFire, xRight, yBottom)
+                % grid point to the bottom right
+                if rn(2) <= obj.spreadProbDiag
+                    if xThis < obj.gridPtsX && yThis < obj.gridPtsY
+                        if prospGrid(yBottom, xRight) == 0
                             prospFire = [prospFire, [xRight; yBottom]];
+                            prospGrid(yBottom, xRight) = 1;
                         end
                     end
                 end
-                
-                % grid point to the left
-                if thisX > 1
-                    if rn(4) <= obj.spreadProbX && ~obj.hasExistingFire(prospFire, xLeft, thisY)
-                        prospFire = [prospFire, [xLeft; thisY]];
-                    end
 
-                    % grid point to the top left
-                    if thisY < obj.gridPtsY
-                        if rn(5) <= obj.spreadProbDiag && ~obj.hasExistingFire(prospFire, xLeft, yTop)
-                            prospFire = [prospFire, [xLeft; yTop]];
+                % grid point to the bottom
+                if rn(3) <= obj.spreadProbY
+                    if yThis < obj.gridPtsY
+                        if prospGrid(yBottom, xThis) == 0
+                            prospFire = [prospFire, [xThis; yBottom]];
+                            prospGrid(yBottom, xThis) = 1;
                         end
                     end
+                end
 
-                    % grid point to the bottom left
-                    if thisY > 1
-                        if rn(6) <= obj.spreadProbDiag && ~obj.hasExistingFire(prospFire, xLeft, yBottom)
+                % grid point to the bottom left
+                if rn(4) <= obj.spreadProbDiag
+                    if yThis < obj.gridPtsY && xThis > 1
+                        if prospGrid(yBottom, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yBottom]];
+                            prospGrid(yBottom, xLeft) = 1;
                         end
                     end
                 end
 
-                % grid point above
-                if thisY < obj.gridPtsY
-                    if rn(7) <= obj.spreadProbY && ~obj.hasExistingFire(prospFire, thisX, yTop)
-                        prospFire = [prospFire, [thisX; yTop]];
+                % grid point to the left
+                if rn(5) <= obj.spreadProbX
+                    if xThis > 1
+                        if prospGrid(yThis, xLeft) == 0
+                            prospFire = [prospFire, [xLeft; yThis]];
+                            prospGrid(yThis, xLeft) = 1;
+                        end
                     end
                 end
 
-                % grid point below
-                if thisY > 1
-                    if rn(8) <= obj.spreadProbY && ~obj.hasExistingFire(prospFire, thisX, yBottom)
-                        prospFire = [prospFire, [thisX; yBottom]];
+                % grid point to the top eft
+                if rn(6) <= obj.spreadProbDiag
+                    if yThis > 1 && xThis > 1
+                        if prospGrid(yTop, xLeft) == 0
+                            prospFire = [prospFire, [xLeft; yTop]];
+                            prospGrid(yTop, xLeft) = 1;
+                        end
                     end
                 end
+
+                % grid point to the top
+                if rn(7) <= obj.spreadProbY
+                    if yThis > 1
+                        if prospGrid(yTop, xThis) == 0
+                            prospFire = [prospFire, [xThis; yTop]];
+                            prospGrid(yTop, xThis) = 1;
+                        end
+                    end
+                end
+
+                % grid point to the top right
+                if rn(8) <= obj.spreadProbDiag
+                    if yThis > 1 && xThis < obj.gridPtsX
+                        if prospGrid(yTop, xRight) == 0
+                            prospFire = [prospFire, [xRight; yTop]];
+                            prospGrid(yTop, xRight) = 1;
+                        end
+                    end
+                end
+
             end
         
             % Update existing fire
@@ -139,20 +170,7 @@ classdef Fire < handle
             % This makes spreading to a grid surround by existing fire more
             % likely
             obj.firePoints = prospFire;
-        end
-
-        % checks if a point given by (x,y) already has existing fire
-        function result = hasExistingFire(obj, fire, x, y)
-            result = 0;
-
-            for i = 1:length(fire(1,:))
-                thisColumn = fire(:,i);
-                if thisColumn == [x;y]
-                    result = 1;
-                    break
-                end
-            end
-
+            obj.grid = prospGrid;
         end
     end
 end

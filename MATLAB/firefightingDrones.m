@@ -84,25 +84,25 @@ for i = timeStep:timeStep:finalTime
     hold on
     xlim([0 mapSizeX])
     ylim([0 mapSizeY])
-    
+
     for i = 1:numBases
         plot(bases(i).x, bases(i).y, "o", "Color", "blue", "MarkerSize", 5)
     end
-    
+
     for i = 1:fire.getNumPoint
         x = fire.firePoints(1,i);
         y = fire.firePoints(2,i);
-    
+
         xCenter = gridResX * x;
         yCenter = gridResY * y;
         xi = xCenter - halfGridResX;
         xf = xCenter + halfGridResX;
         yi = yCenter - halfGridResY;
         yf = yCenter + halfGridResY;
-    
+
         fill([xi xf xf xi], [yi yi yf yf], "r")
     end
-    
+
     pbaspect([1 1 1])
 
 end
