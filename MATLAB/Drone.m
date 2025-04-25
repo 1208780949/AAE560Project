@@ -33,6 +33,8 @@ classdef Drone < handle
         chargeRate = 0.005; % amp-hour/sec
         batteryVoltage = 44.4; % volts
         batteryInstallTime = 120; % assume that it 60 seconds to uninstall and install the battery 
+        maxPayload = 15.9; % kg
+        upfrontCost = 28150 + 690 * 2 + 1150; % 1x drone - $28150, 2x 16 Ah batteries - $690x2, 1x charging station - $1150
         
         % status
         x = 0;
@@ -63,6 +65,9 @@ classdef Drone < handle
             % set drone's position to base position
             obj.x = base.x;
             obj.y = base.y;
+
+            % track upfront cost
+            base.upfrontCost = base.upfrontCost + obj.upfrontCost * obj.swarmSize;
         end
 
         % update the drone
@@ -131,6 +136,9 @@ classdef Drone < handle
                     % update battery
                     % consumption rate is the average between max and no payload
                     obj.currentBattery = obj.currentBattery - 10 * ((obj.battConsMaxPayload + obj.battConsNoPayload) / 2);
+
+                    % track total retardant dropped
+                    obj.base.retardantUsed = obj.base.retardantUsed + obj.maxPayload * obj.swarmSize;
                 end
                 
             elseif obj.status == "charging"

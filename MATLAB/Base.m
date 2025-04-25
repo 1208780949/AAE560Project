@@ -9,6 +9,8 @@ classdef Base < handle
         targetedFire % list of fire grid pts that has already been targeted
         currentTime % current time of simulation
         powerUsed = 0 % total power consumption in watt-hour
+        retardantUsed = 0 % total retardant used in kg
+        upfrontCost = 0 % cost for equipment in USD
     end
 
     methods
