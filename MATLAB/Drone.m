@@ -10,29 +10,48 @@ classdef Drone < handle
     % flight time at max payload: 10.75 minutes
     % flight time when empty: 50 minutes
     % max speed: 20 m/s
-    % battery capacity: 32 Amp-Hour
+    % battery capacity: 32 Amp-Hour (2x16)
+    %  - 0.0496124031 Amp-Hour/s with max payload
+    %  - 0.01066666666 Amp-Hour/s with no payload
+    %
+    % Fast charger is available that charges at 800W
+    % 32 Amp-Hour at 44.4 V is 1420.8 Watt-Hour
+    % Therefore, empty battery will take 106.56 minutes to charge.
+    % That is 0.005 amp-hour/sec.
+
 
     properties
+        % drone properties
+        maxSpd = 20 % max speed in m/s
+        extinguishTime = 10% time it takes to extinguish a grid point of fire
+        timeStep % time step size in s
+        base % base of the drone 
+        size = 2568; % each drone object represents 2568 drones, the minimum required to extinguish fire at 1 grid point
+        batterySize = 32; % amp-hour
+        battConsMaxPayload = 0.0496124031; % battery consumption in amp-hour/s with max payload
+        battConsNoPayload = 0.01066666666; % battery consumption in amp-hour/s with no payload
+        chargeRate = 0.005; % amp-hour/sec
+        batteryInstallTime = 120; % assume that it 60 seconds to uninstall and install the battery 
+        
+        % status
         x = 0;
         y = 0;
-        maxSpd % max speed in m/s
+        status = "idle" % status of the drone, possible status include: idle, flight2target, extinguishing, return2base, charging, and crashed.
+        currentBattery % battery remaining in amp-hour
+        statusStartTime % when status changed to the current status
+
+        % mission
         targetX % the target the drone is heading to
         targetY % the target the drone is heading to
-        base % base of the drone 
-        status = "idle" % status of the drone, possible status include: idle, flight2target, extinguishing, return2base
-        timeStep % time step size in s
-        size = 2568; % each drone object represents 2568 drones, the minimum required to extinguish fire at 1 grid point
-        taskFinishTime % the time for when a task will be finished for time based tasks (like extinguishing)
-        extinguishTime % time it takes to extinguish a grid point of fire
+        taskFinishTime % the time for when a task will be finished for time based tasks (like extinguishing) 
         targetFire % the fire object that the drone is targeting
         targetFireIndex % the index of target fire. Only keeping track to that the base knows which fire has been extinguished
     end
 
     methods
-        function obj = Drone(maxSpd, timeStep, extinguishTime)
-            obj.maxSpd = maxSpd;
+        function obj = Drone(timeStep)
             obj.timeStep = timeStep;
-            obj.extinguishTime = extinguishTime;
+            obj.currentBattery = obj.batterySize;
         end
 
         % assign the drone to a base when it is instantiated
@@ -70,10 +89,22 @@ classdef Drone < handle
                     newY = obj.targetY;
 
                     if obj.status == "flight2target"
+                        % update battery
+                        timeSpent = obj.base.currentTime - obj.statusStartTime;
+                        obj.currentBattery = obj.currentBattery - timeSpent * obj.battConsMaxPayload;
+                        
+                        % switch to extinguishing
                         obj.status = "extinguishing";
                         obj.taskFinishTime = obj.base.currentTime + 10;
+                        obj.statusStartTime = obj.base.currentTime;
                     elseif obj.status == "return2base"
+                        % battery remaining
+                        timeSpent = obj.base.currentTime - obj.statusStartTime;
+                        obj.currentBattery = obj.currentBattery - timeSpent * obj.battConsNoPayload;
+
+                        % go to charge
                         obj.status = "charging";
+                        obj.taskFinishTime = (obj.batterySize - obj.currentBattery) / obj.chargeRate + obj.batteryInstallTime + obj.base.currentTime;
                     end
                 end
 
@@ -84,13 +115,29 @@ classdef Drone < handle
             elseif obj.status == "extinguishing"
                 
                 if obj.base.currentTime > obj.taskFinishTime
+                    % going back home
                     obj.targetFire.extinguish(obj.targetX, obj.targetY)
                     obj.status = "return2base";
                     obj.targetX = obj.base.x;
                     obj.targetY = obj.base.y;
                     obj.targetFire = [];
-
+                    obj.statusStartTime = obj.base.currentTime;
+                    
+                    % let base know
                     obj.base.fireExtinguished(obj.targetFireIndex);
+
+                    % update battery
+                    % consumption rate is the average between max and no payload
+                    obj.currentBattery = obj.currentBattery - 10 * ((obj.battConsMaxPayload + obj.battConsNoPayload) / 2);
+                end
+                
+            elseif obj.status == "charging"
+                
+                if obj.base.currentTime > obj.taskFinishTime
+                    % going to idle
+                    obj.status = "idle";
+                    obj.currentBattery = obj.batterySize;
+                    obj.base.droneReady(obj);
                 end
 
             end
@@ -103,6 +150,7 @@ classdef Drone < handle
             obj.targetY = targetY;
             obj.targetFire = fire;
             obj.targetFireIndex = index;
+            obj.statusStartTime = obj.base.currentTime;
         end
     end
 end

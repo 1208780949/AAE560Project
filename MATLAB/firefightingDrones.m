@@ -20,13 +20,10 @@ mapSizeY = 10000; % m
 numBases = 1; % number of bases
 numDronesPerBase = 10; % number of drones per base
 
-droneSpd = 20; % drone speed in m/s
-extinguishTime = 10; % 10 s to extinguish fire at a grid point
-
 randNumber = rng(45325405, "twister"); % random number generator to make things repeatable
 
 timeStep = 1;
-finalTime = 1000;
+finalTime = 3000;
 
 % ----------------
 %  initialization
@@ -44,7 +41,7 @@ for i = 1:numBases
 
     % generating drones
     for j = 1:numDronesPerBase
-        drones(j) = Drone(droneSpd, timeStep, extinguishTime);
+        drones(j) = Drone(timeStep);
     end
 
     % generating base
@@ -70,18 +67,21 @@ base.setFire(fire)
 %  running simulation
 % --------------------
 
-for i = timeStep:timeStep:finalTime
+for i = 1:timeStep:finalTime
 
     fire.fireSpread();
     for j = 1:numBases
         bases(j).update(i)
+
         for k = 1:length(bases(j).activeDrones)
             bases(j).activeDrones(k).update();
         end
+        
     end
 
     if fire.getNumPoint == 0
         % fire extinguished
+        disp("Fire Extinguished")
         break
     end
 

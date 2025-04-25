@@ -4,6 +4,7 @@ classdef Base < handle
         y % base y position in m
         idleDrones % a list of idling drones from this base (idle really mean ready for mission)
         activeDrones % list of drones performing some sort of action
+        activeToIdleDrones % a list of drones that need to go from active to idle in the next time step
         fires % list of fires
         targetedFire % list of fire grid pts that has already been targeted
         currentTime % current time of simulation
@@ -33,7 +34,15 @@ classdef Base < handle
             % update time
             obj.currentTime = currentTime;
 
-            % drone job assignment (make this the last action)
+            % ** turn applicable active drones to idle drones **
+
+            if ~isempty(obj.activeToIdleDrones)
+                obj.activeDrones(obj.activeDrones == obj.activeToIdleDrones) = [];
+                obj.idleDrones = [obj.idleDrones obj.activeToIdleDrones];
+                obj.activeToIdleDrones = [];
+            end
+
+            % ** drone job assignment (make this the last action) **
 
             % if there are no more idle drones left, skip task assignment
             if isempty(obj.idleDrones)
@@ -53,9 +62,14 @@ classdef Base < handle
                         % drone, skip this fire
                         continue
                     end
+
+                    if length(stateChangeDrones) >= length(obj.idleDrones)
+                        break
+                    end
+
                     firePoint = fire.firePoints(:,j);
 
-                    drone = obj.idleDrones(1);
+                    drone = obj.idleDrones(length(stateChangeDrones) + 1);
                     gridCenter = fire.getGridCenterPoint(firePoint(1), firePoint(2));
                     drone.statusChangeFlight2Target(gridCenter(1), gridCenter(2), fire, j);
                     obj.activeDrones = [obj.activeDrones drone];
@@ -90,6 +104,12 @@ classdef Base < handle
                     drone.targetFireIndex = drone.targetFireIndex - 1;
                 end
             end
+        end
+    
+        % a drone has finished its mission and charging
+        % it can be considered idle again
+        function droneReady(obj, drone)
+            obj.activeToIdleDrones = [obj.activeToIdleDrones drone];
         end
     end
 end
