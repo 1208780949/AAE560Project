@@ -8,6 +8,7 @@ classdef Base < handle
         fires % list of fires
         targetedFire % list of fire grid pts that has already been targeted
         currentTime % current time of simulation
+        powerUsed = 0 % total power consumption in watt-hour
     end
 
     methods

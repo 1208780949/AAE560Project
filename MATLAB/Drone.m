@@ -26,11 +26,12 @@ classdef Drone < handle
         extinguishTime = 10% time it takes to extinguish a grid point of fire
         timeStep % time step size in s
         base % base of the drone 
-        size = 2568; % each drone object represents 2568 drones, the minimum required to extinguish fire at 1 grid point
+        swarmSize = 2568; % each drone object represents 2568 drones, the minimum required to extinguish fire at 1 grid point
         batterySize = 32; % amp-hour
         battConsMaxPayload = 0.0496124031; % battery consumption in amp-hour/s with max payload
         battConsNoPayload = 0.01066666666; % battery consumption in amp-hour/s with no payload
         chargeRate = 0.005; % amp-hour/sec
+        batteryVoltage = 44.4; % volts
         batteryInstallTime = 120; % assume that it 60 seconds to uninstall and install the battery 
         
         % status
@@ -105,6 +106,7 @@ classdef Drone < handle
                         % go to charge
                         obj.status = "charging";
                         obj.taskFinishTime = (obj.batterySize - obj.currentBattery) / obj.chargeRate + obj.batteryInstallTime + obj.base.currentTime;
+                        obj.base.powerUsed = obj.base.powerUsed + (obj.batterySize - obj.currentBattery) * obj.batteryVoltage * obj.swarmSize;
                     end
                 end
 
