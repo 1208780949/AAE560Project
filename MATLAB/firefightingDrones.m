@@ -47,6 +47,12 @@ fireStartY = 9900;
 % fireStartY = rand(1,1) * mapSizeY; % fire start location y, can be size (1,[1,inf))
 fire = Fire(fireStartX, fireStartY, fireGridX, fireGridY, mapSizeX, mapSizeY, timeStep);
 
+lakeX = 9000;
+lakeY = 9000;
+borderX = [8500, 8500, 11000, 11000];
+borderY = [11000, 8500, 8500, 11000];
+lake = Lake(lakeX ,lakeY, borderX, borderY);
+
 if enableDrone
     bases = Base.empty(0, numBases);
     
@@ -77,7 +83,7 @@ if enableHelicopter
     helicopters = Helicopter.empty(0, numHelicopters);
 
     for i = 1:numHelicopters
-        helicopters(i) = Helicopter(timeStep);
+        helicopters(i) = Helicopter(timeStep, lakeX, lakeY);
     end
 
     airport = Airport(mapSizeX, 1000, helicopters);
@@ -87,12 +93,6 @@ if enableHelicopter
         helicopters(i).setAirport(airport)
     end
 end
-
-lakeX = 9000;
-lakeY = 9000;
-borderX = [8500, 8500, 11000, 11000];
-borderY = [11000, 8500, 8500, 11000];
-lake = Lake(lakeX ,lakeY, borderX, borderY);
 
 % --------------------
 %  running simulation

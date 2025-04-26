@@ -4,7 +4,7 @@ classdef Airport < handle
         y % base y position in m
         idleHelicopters % a list of idling drones from this base (idle really mean ready for mission)
         activeHelicopters % list of drones performing some sort of action
-        activeToIdleDrones % a list of drones that need to go from active to idle in the next time step
+        activeToIdleHelis % a list of drones that need to go from active to idle in the next time step
         fires % list of fires
         targetedFire % list of fire grid pts that has already been targeted
         currentTime % current time of simulation
@@ -39,10 +39,10 @@ classdef Airport < handle
 
             % ** turn applicable active drones to idle drones **
 
-            if ~isempty(obj.activeToIdleDrones)
-                obj.activeHelicopters(obj.activeHelicopters == obj.activeToIdleDrones) = [];
-                obj.idleHelicopters = [obj.idleHelicopters obj.activeToIdleDrones];
-                obj.activeToIdleDrones = [];
+            if ~isempty(obj.activeToIdleHelis)
+                obj.activeHelicopters(obj.activeHelicopters == obj.activeToIdleHelis) = [];
+                obj.idleHelicopters = [obj.idleHelicopters obj.activeToIdleHelis];
+                obj.activeToIdleHelis = [];
             end
 
             % ** drone job assignment (make this the last action) **
@@ -52,7 +52,7 @@ classdef Airport < handle
                 return
             end
 
-            stateChangeDrones = Drone.empty(0, 0);
+            stateChangeHelis = Helicopter.empty(0, 0);
 
             for i = 1:length(obj.fires)
 
@@ -66,23 +66,23 @@ classdef Airport < handle
                         continue
                     end
 
-                    if length(stateChangeDrones) >= length(obj.idleHelicopters)
+                    if length(stateChangeHelis) >= length(obj.idleHelicopters)
                         break
                     end
 
                     firePoint = fire.firePoints(:,j);
 
-                    drone = obj.idleHelicopters(length(stateChangeDrones) + 1);
+                    drone = obj.idleHelicopters(length(stateChangeHelis) + 1);
                     gridCenter = fire.getGridCenterPoint(firePoint(1), firePoint(2));
-                    drone.statusChangeFlight2Target(gridCenter(1), gridCenter(2), fire, j);
+                    drone.statusChangeFlight2Prep(fire, j, gridCenter(1), gridCenter(2));
                     obj.activeHelicopters = [obj.activeHelicopters drone];
-                    stateChangeDrones = [stateChangeDrones drone];
+                    stateChangeHelis = [stateChangeHelis drone];
                     obj.targetedFire = [obj.targetedFire j];
                 end
             end
             
-            if ~isempty(stateChangeDrones)
-                obj.idleHelicopters(obj.idleHelicopters == stateChangeDrones) = [];
+            if ~isempty(stateChangeHelis)
+                obj.idleHelicopters(obj.idleHelicopters == stateChangeHelis) = [];
             end
 
         end
@@ -112,7 +112,7 @@ classdef Airport < handle
         % a drone has finished its mission and charging
         % it can be considered idle again
         function droneReady(obj, drone)
-            obj.activeToIdleDrones = [obj.activeToIdleDrones drone];
+            obj.activeToIdleHelis = [obj.activeToIdleHelis drone];
         end
     end
 end
