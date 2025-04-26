@@ -40,7 +40,9 @@ classdef Airport < handle
             % ** turn applicable active drones to idle drones **
 
             if ~isempty(obj.activeToIdleHelis)
-                obj.activeHelicopters(obj.activeHelicopters == obj.activeToIdleHelis) = [];
+                for i = 1:length(obj.activeToIdleHelis)
+                    obj.activeHelicopters(obj.activeHelicopters == obj.activeToIdleHelis(i)) = [];
+                end
                 obj.idleHelicopters = [obj.idleHelicopters obj.activeToIdleHelis];
                 obj.activeToIdleHelis = [];
             end
@@ -111,8 +113,8 @@ classdef Airport < handle
     
         % a drone has finished its mission and charging
         % it can be considered idle again
-        function droneReady(obj, drone)
-            obj.activeToIdleHelis = [obj.activeToIdleHelis drone];
+        function heliReady(obj, helicopter)
+            obj.activeToIdleHelis = [obj.activeToIdleHelis helicopter];
         end
     end
 end

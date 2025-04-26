@@ -19,7 +19,7 @@ mapSizeY = 10000; % m
 
 numBases = 1; % number of bases
 numDronesPerBase = 10; % number of drones per base
-numHelicopters = 1; % number of helicopter fleets
+numHelicopters = 10; % number of helicopter fleets
 
 randNumber = rng(45325405, "twister"); % random number generator to make things repeatable
 
@@ -86,7 +86,7 @@ if enableHelicopter
         helicopters(i) = Helicopter(timeStep, lakeX, lakeY);
     end
 
-    airport = Airport(mapSizeX, 1000, helicopters);
+    airport = Airport(mapSizeX/2, 6000, helicopters);
     airport.setFire(fire)
 
     for i = 1:numHelicopters

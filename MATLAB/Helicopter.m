@@ -40,7 +40,7 @@ classdef Helicopter < handle
         waterCannonFlowRate = 1136; % water cannon flow rate when extinguishing fire in kg/s
         timeStep % time step size in s
         airport % base of the helicopter 
-        fleetSize = 1; % each fleet consist of this many helicopters
+        fleetSize = 10; % each fleet consist of this many helicopters
         fuelTankSize = 3300; % can carry up to 3300 kg of fuel
         fuelFlow = 0.344 % fuel flow in kg/s
         refuelRate = 15.3; % kg/s
@@ -58,6 +58,7 @@ classdef Helicopter < handle
         currentFuel % battery remaining in amp-hour
         statusStartTime % when status changed to the current status
         currentWater = 0; % amount of water in the helicopter
+        firstMission = 1; % first mission of the day. Used to signal when crew prep is needed.
 
         % mission
         targetX % the target the drone is heading to
@@ -67,7 +68,7 @@ classdef Helicopter < handle
         targetFireIndex % the index of target fire. Only keeping track to that the base knows which fire has been extinguished
         lakeX % water refill point
         lakeY % water refill point
-        extinguishingProgress % fire extinguishing progress
+        extinguishingProgress = 0 % fire extinguishing progress
         fireX % target fire x position
         fireY % target fire y position
     end
@@ -125,23 +126,28 @@ classdef Helicopter < handle
                     if obj.currentFuel <= obj.minimumFuel
                         % switch to return home status
                         obj.status = "return2base";
+                        obj.targetX = obj.airport.x;
+                        obj.targetY = obj.airport.y;
+                        obj.statusStartTime = obj.airport.currentTime;
+                        return
                     end
 
                     if obj.status == "flight2target"
                         % switch to extinguishing
                         obj.status = "extinguishing";
-                        obj.taskFinishTime = obj.airport.currentTime + 10;
+                        obj.taskFinishTime = obj.airport.currentTime + obj.currentWater / obj.waterCannonFlowRate;
                         obj.statusStartTime = obj.airport.currentTime;
                     elseif obj.status == "return2base"
                         % go to charge
                         obj.status = "refueling";
-                        obj.taskFinishTime = (obj.fuelTankSize - obj.currentFuel) / obj.refuelRate + obj.airport.currentTime;
+                        obj.taskFinishTime = (obj.fuelTankSize - obj.currentFuel) / obj.refuelRate * obj.fleetSize + obj.airport.currentTime;
                         obj.airport.powerUsed = obj.airport.powerUsed + (obj.fuelTankSize - obj.currentFuel);
                     elseif obj.status == "flight2refill"
                         % go to refilling
                         obj.status = "refilling";
                         waterToAdd = obj.usefulLoad - obj.currentFuel - obj.currentWater;
                         obj.taskFinishTime = waterToAdd / obj.scoopRate;
+                        obj.statusStartTime = obj.airport.currentTime;
                     end
                 end
 
@@ -151,26 +157,31 @@ classdef Helicopter < handle
 
             elseif obj.status == "extinguishing"
 
-                if obj.airport.currentTime > obj.taskFinishTime
-                    % going back home
+                obj.extinguishingProgress = obj.extinguishingProgress + (obj.currentWater * obj.fleetSize);
+                obj.currentWater = 0;
+
+                if obj.extinguishingProgress >= obj.waterRequired
+                    % if fire is extinguished, go back home
                     obj.targetFire.extinguish(obj.targetX, obj.targetY)
                     obj.status = "return2base";
                     obj.targetX = obj.airport.x;
                     obj.targetY = obj.airport.y;
                     obj.targetFire = [];
                     obj.statusStartTime = obj.airport.currentTime;
-                    
+                    obj.extinguishingProgress = 0;
+
                     % let base know
                     obj.airport.fireExtinguished(obj.targetFireIndex);
-
-                    % update battery
-                    % consumption rate is the average between max and no payload
-                    obj.currentFuel = obj.currentFuel - 10 * obj.fuelFlow;
-
-                    % track total retardant dropped
-                    % to-do: fix retardant tracking
-                    obj.airport.retardantUsed = obj.airport.retardantUsed + obj.usefulLoad * obj.fleetSize;
+                else
+                    % go to the lake to refill water
+                    obj.status = "flight2refill";
+                    obj.targetX = obj.lakeX;
+                    obj.targetY = obj.lakeY;
+                    obj.statusStartTime = obj.airport.currentTime;
                 end
+                
+                % update fuel
+                obj.currentFuel = obj.currentFuel - (obj.airport.currentTime - obj.statusStartTime) * obj.fuelFlow;
 
             elseif obj.status == "refueling"
 
@@ -178,7 +189,7 @@ classdef Helicopter < handle
                     % going to idle
                     obj.status = "idle";
                     obj.currentFuel = obj.fuelTankSize;
-                    obj.airport.droneReady(obj);
+                    obj.airport.heliReady(obj);
                 end
 
             elseif obj.status == "refilling"
@@ -188,6 +199,12 @@ classdef Helicopter < handle
                     obj.status = "flight2target";
                     obj.targetX = obj.fireX;
                     obj.targetY = obj.fireY;
+
+                    % update fuel and water
+                    obj.currentWater = obj.usefulLoad - obj.currentFuel;
+                    obj.currentFuel = obj.currentFuel - (obj.airport.currentTime - obj.statusStartTime) * obj.fuelFlow;
+
+                    obj.statusStartTime = obj.airport.currentTime;
                 end
 
             elseif obj.status == "crewPrep"
@@ -203,7 +220,13 @@ classdef Helicopter < handle
 
         % drone has just been given a job
         function statusChangeFlight2Prep(obj, fire, index, fireX, fireY)
-            obj.status = "crewPrep";
+
+            if obj.firstMission
+                obj.status = "crewPrep";
+                obj.firstMission = 0;
+            else
+                obj.status = "flight2refill";
+            end
             obj.targetX = obj.lakeX;
             obj.targetY = obj.lakeY;
             obj.targetFire = fire;

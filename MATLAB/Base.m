@@ -40,7 +40,9 @@ classdef Base < handle
             % ** turn applicable active drones to idle drones **
 
             if ~isempty(obj.activeToIdleDrones)
-                obj.activeDrones(obj.activeDrones == obj.activeToIdleDrones) = [];
+                for i = 1:length(obj.activeToIdleDrones)
+                    obj.activeDrones(obj.activeDrones == obj.activeToIdleDrones(i)) = [];
+                end
                 obj.idleDrones = [obj.idleDrones obj.activeToIdleDrones];
                 obj.activeToIdleDrones = [];
             end
