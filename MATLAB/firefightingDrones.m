@@ -19,11 +19,18 @@ mapSizeY = 10000; % m
 
 numBases = 1; % number of bases
 numDronesPerBase = 10; % number of drones per base
+numHelicopters = 1; % number of helicopter fleets
 
 randNumber = rng(45325405, "twister"); % random number generator to make things repeatable
 
 timeStep = 1;
 finalTime = 3000;
+
+enableDrone = 0;
+enableHelicopter = 1;
+
+baseX = [1.3442e3]; % base x locations
+baseY = [6.5729e3]; % base y locations
 
 % ----------------
 %  initialization
@@ -34,34 +41,58 @@ gridResY = mapSizeY / fireGridY; % m/grid
 halfGridResX = gridResX / 2; % calculating here to prevent looping through the same calc downstream
 halfGridResY = gridResY / 2;
 
-bases = Base.empty(0, numBases);
+fireStartX = 800;
+fireStartY = 9900;
+% fireStartX = rand(1,1) * mapSizeX; % fire start location x, can be size (1,[1,inf))
+% fireStartY = rand(1,1) * mapSizeY; % fire start location y, can be size (1,[1,inf))
+fire = Fire(fireStartX, fireStartY, fireGridX, fireGridY, mapSizeX, mapSizeY, timeStep);
 
-for i = 1:numBases
-    drones = Drone.empty(0, numDronesPerBase);
+if enableDrone
+    bases = Base.empty(0, numBases);
+    
+    for i = 1:numBases
+        drones = Drone.empty(0, numDronesPerBase);
+    
+        % generating drones
+        for j = 1:numDronesPerBase
+            drones(j) = Drone(timeStep);
+        end
+   
+        % generating bases
+        base = Base(baseX(i), baseY(i), drones);
+        bases(i) = base;
+    
+        % assign drone to base
+        for j = 1:numDronesPerBase
+            drones(j).setBase(base);
+        end
 
-    % generating drones
-    for j = 1:numDronesPerBase
-        drones(j) = Drone(timeStep);
+        base(i).setFire(fire)
+    end
+else
+    numBases = 0;
+end
+
+if enableHelicopter
+    helicopters = Helicopter.empty(0, numHelicopters);
+
+    for i = 1:numHelicopters
+        helicopters(i) = Helicopter(timeStep);
     end
 
-    % generating base
-    xPos = rand(1,1);
-    yPos = rand(1,1);
+    airport = Airport(mapSizeX, 1000, helicopters);
+    airport.setFire(fire)
 
-    base = Base(xPos * mapSizeX, yPos * mapSizeY, drones);
-    bases(i) = base;
-
-    % assign drone to base
-    for j = 1:numDronesPerBase
-        drones(j).setBase(base);
+    for i = 1:numHelicopters
+        helicopters(i).setAirport(airport)
     end
 end
 
-fireStartX = rand(1,1) * mapSizeX; % fire start location x, can be size (1,[1,inf))
-fireStartY = rand(1,1) * mapSizeY; % fire start location y, can be size (1,[1,inf))
-fire = Fire(fireStartX, fireStartY, fireGridX, fireGridY, mapSizeX, mapSizeY, timeStep);
-
-base.setFire(fire)
+lakeX = 9000;
+lakeY = 9000;
+borderX = [8500, 8500, 11000, 11000];
+borderY = [11000, 8500, 8500, 11000];
+lake = Lake(lakeX ,lakeY, borderX, borderY);
 
 % --------------------
 %  running simulation
@@ -70,13 +101,19 @@ base.setFire(fire)
 for i = 1:timeStep:finalTime
 
     fire.fireSpread();
+
     for j = 1:numBases
         bases(j).update(i)
-
         for k = 1:length(bases(j).activeDrones)
             bases(j).activeDrones(k).update();
         end
-        
+    end
+
+    if enableHelicopter
+        airport.update(i)
+        for j = 1:length(airport.activeHelicopters)
+            airport.activeHelicopters(j).update();
+        end
     end
 
     if fire.getNumPoint == 0
@@ -99,6 +136,9 @@ for i = 1:timeStep:finalTime
     xlim([0 mapSizeX])
     ylim([0 mapSizeY])
 
+    % draw lake
+    fill(lake.borderX, lake.borderY, "b")
+
     for j = 1:fire.getNumPoint
         x = fire.firePoints(1,j);
         y = fire.firePoints(2,j);
@@ -114,12 +154,18 @@ for i = 1:timeStep:finalTime
     end
 
     for j = 1:numBases
-        
         plot(bases(j).x, bases(j).y, "o", "Color", "blue", "MarkerSize", 5)
-        
         for k = 1:length(bases(j).activeDrones)
             drone = bases(j).activeDrones(k);
             plot(drone.x, drone.y, "x", "Color", "black", "MarkerSize", 3)
+        end
+    end
+
+    if enableHelicopter
+        plot(airport.x, airport.y, "o", "Color", "blue", "MarkerSize", 10)
+        for j = 1:length(airport.activeHelicopters)
+            heli = airport.activeHelicopters(j);
+            plot(heli.x, heli.y, "x", "Color", "black", "MarkerSize", 6)
         end
     end
 
