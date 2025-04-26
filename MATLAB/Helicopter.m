@@ -40,7 +40,7 @@ classdef Helicopter < handle
         waterCannonFlowRate = 1136; % water cannon flow rate when extinguishing fire in kg/s
         timeStep % time step size in s
         airport % base of the helicopter 
-        fleetSize = 10; % each fleet consist of this many helicopters
+        fleetSize = 2; % each fleet consist of this many helicopters
         fuelTankSize = 3300; % can carry up to 3300 kg of fuel
         fuelFlow = 0.344 % fuel flow in kg/s
         refuelRate = 15.3; % kg/s
@@ -71,6 +71,7 @@ classdef Helicopter < handle
         extinguishingProgress = 0 % fire extinguishing progress
         fireX % target fire x position
         fireY % target fire y position
+        takeoffTime % time when the helicopter took off each time
     end
 
     methods
@@ -141,7 +142,10 @@ classdef Helicopter < handle
                         % go to charge
                         obj.status = "refueling";
                         obj.taskFinishTime = (obj.fuelTankSize - obj.currentFuel) / obj.refuelRate * obj.fleetSize + obj.airport.currentTime;
-                        obj.airport.powerUsed = obj.airport.powerUsed + (obj.fuelTankSize - obj.currentFuel);
+                        obj.airport.fuelUsed = obj.airport.fuelUsed + (obj.fuelTankSize - obj.currentFuel);
+
+                        % calculate operational cost
+                        obj.airport.operationalCost = obj.airport.operationalCost + (obj.airport.currentTime - obj.takeoffTime) * obj.operatingCost * obj.fleetSize;
                     elseif obj.status == "flight2refill"
                         % go to refilling
                         obj.status = "refilling";
@@ -188,6 +192,7 @@ classdef Helicopter < handle
                 if obj.airport.currentTime > obj.taskFinishTime
                     % going to idle
                     obj.status = "idle";
+                    obj.airport.fuelUsed = obj.airport.fuelUsed + (obj.fuelTankSize - obj.currentFuel) * obj.fleetSize;
                     obj.currentFuel = obj.fuelTankSize;
                     obj.airport.heliReady(obj);
                 end
@@ -213,6 +218,7 @@ classdef Helicopter < handle
                     % go to flight2refill
                     obj.status = "flight2refill";
                     obj.statusStartTime = obj.airport.currentTime;
+                    obj.takeoffTime = obj.airport.currentTime;
                 end
 
             end
@@ -234,6 +240,16 @@ classdef Helicopter < handle
             obj.taskFinishTime = obj.airport.currentTime + obj.crewPrepTime;
             obj.fireX = fireX;
             obj.fireY = fireY;
+        end
+
+        % include fuel used for in-progress flights at the end
+        function finalTally(obj)
+            if obj.status == "refueling"
+                return
+            end
+
+            obj.airport.fuelUsed = obj.airport.fuelUsed + (obj.fuelTankSize - obj.currentFuel) * obj.fleetSize;
+            obj.airport.operationalCost = obj.airport.operationalCost + (obj.airport.currentTime - obj.takeoffTime) * obj.operatingCost;
         end
     end
 end

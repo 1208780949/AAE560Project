@@ -8,8 +8,8 @@ classdef Airport < handle
         fires % list of fires
         targetedFire % list of fire grid pts that has already been targeted
         currentTime % current time of simulation
-        powerUsed = 0 % total power consumption in watt-hour
-        retardantUsed = 0 % total retardant used in kg
+        fuelUsed = 0 % total power consumption in watt-hour
+        operationalCost = 0 % total retardant used in kg
         upfrontCost = 0 % cost for equipment in USD
     end
 
@@ -84,7 +84,9 @@ classdef Airport < handle
             end
             
             if ~isempty(stateChangeHelis)
-                obj.idleHelicopters(obj.idleHelicopters == stateChangeHelis) = [];
+                for i = 1:length(stateChangeHelis)
+                    obj.idleHelicopters(obj.idleHelicopters == stateChangeHelis(i)) = [];
+                end
             end
 
         end

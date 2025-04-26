@@ -1,4 +1,10 @@
 classdef Base < handle
+    % fire retardant cost: $3/gal = $0.727/kg
+    % https://www.frontlinewildfire.com/wildfire-news-and-resources/aerial-wildfire-fighting-how-effective-is-it/
+    %
+    % Electricity cost in CA: 26.84 cents/kWh
+    % https://www.electricchoice.com/electricity-prices-by-state/
+
     properties
         x % base x position in m
         y % base y position in m
@@ -11,6 +17,10 @@ classdef Base < handle
         powerUsed = 0 % total power consumption in watt-hour
         retardantUsed = 0 % total retardant used in kg
         upfrontCost = 0 % cost for equipment in USD
+
+        % cost
+        fireRetardantCost = 0.727; % fire retardant cost $/kg
+        elecCost = 0.02684; % $/kWh
     end
 
     methods
@@ -84,7 +94,9 @@ classdef Base < handle
             end
             
             if ~isempty(stateChangeDrones)
-                obj.idleDrones(obj.idleDrones == stateChangeDrones) = [];
+                for i = 1:length(stateChangeDrones)
+                    obj.idleDrones(obj.idleDrones == stateChangeDrones(i)) = [];
+                end
             end
 
         end
@@ -115,6 +127,22 @@ classdef Base < handle
         % it can be considered idle again
         function droneReady(obj, drone)
             obj.activeToIdleDrones = [obj.activeToIdleDrones drone];
+        end
+
+        function cost = getRetardantCost(obj)
+            cost = obj.retardantUsed * obj.fireRetardantCost;
+        end
+
+        function cost = getElecCost(obj)
+            cost = obj.powerUsed / 1000 * obj.elecCost;
+        end
+
+        function cost = getOperationalCost(obj)
+            cost = obj.getRetardantCost() + obj.getElecCost();
+        end
+
+        function cost = getTotalCost(obj)
+            cost = obj.getOperationalCost + obj.upfrontCost;
         end
     end
 end

@@ -9,6 +9,7 @@ classdef Fire < handle
         gridResY % distance per cell in y in m
         timeStep % size of time step in s
         grid % the grid of fire. 1 is on fire, 0 is not on fire
+        fuelAvailability = []; % grid of fuel availability, makes sure that fuel does not propagate to area that has already been burned too much
 
         % fire spread rate is based on:
         % https://ieeexplore.ieee.org/abstract/document/10416753?casa_token=6eWDrxQJJHAAAAAA:CEOCSbMLGT7UQrlsp3Gd5ybTtXECO3UZy2Qw3PyliRYWEVJHOle7f9_3I2cFqnd1LLpvKWLScIw
@@ -16,6 +17,7 @@ classdef Fire < handle
         spreadProbX % spreading probability in x direction
         spreadProbY % spreading probability in y direction
         spreadProbDiag % diagonal spreading probability
+        spreadRateScaling = 0.5 % a scaling factor to customize spread rate
     end
 
     methods
@@ -38,21 +40,28 @@ classdef Fire < handle
             obj.gridResY = domainY / gridPtsY;
 
             % the initial grid point that the fire occupies
-            obj.firePoints(1,1) = round(x ./ domainX * gridPtsX);
-            obj.firePoints(2,1) = round(y ./ domainY * gridPtsY);
+            for i = 1:length(x)
+                obj.firePoints(1,i) = round(x(i) ./ domainX * gridPtsX);
+                obj.firePoints(2,i) = round(y(i) ./ domainY * gridPtsY);
+            end
 
             % fire spread probability
             % If time step is large, spread probability proportionately
             % increases to keep spread rate consistent.
             % If grid size is large, spread probability proportionately
             % reduces to keep spread rate consistent.
-            obj.spreadProbX = timeStep * obj.fireSpreadRate / obj.gridResX;
-            obj.spreadProbY = timeStep * obj.fireSpreadRate / obj.gridResY;
-            obj.spreadProbDiag = timeStep * obj.fireSpreadRate / sqrt(obj.gridResX^2 + obj.gridResY^2);
+            obj.spreadProbX = timeStep * obj.fireSpreadRate / obj.gridResX * obj.spreadRateScaling;
+            obj.spreadProbY = timeStep * obj.fireSpreadRate / obj.gridResY * obj.spreadRateScaling;
+            obj.spreadProbDiag = timeStep * obj.fireSpreadRate / sqrt(obj.gridResX^2 + obj.gridResY^2) * obj.spreadRateScaling;
 
             % grid generation and inserting initial fire
             obj.grid = zeros(gridPtsY, gridPtsX);
-            obj.grid(round(y ./ domainY * gridPtsY), round(x ./ domainY * gridPtsY)) = 1;
+            for i = 1:length(x)
+                obj.grid(round(y(i) ./ domainY * gridPtsY), round(x(i) ./ domainY * gridPtsY)) = 1;
+            end
+
+            % fuel availability
+            obj.fuelAvailability = ones(gridPtsY, gridPtsX);
         end
 
         % return the number of grid points the fire occupies
@@ -87,8 +96,8 @@ classdef Fire < handle
                 yBottom = yThis + 1;
 
                 % grid point to the right
-                if rn(1) <= obj.spreadProbX
-                    if xThis < obj.gridPtsX
+                if xThis < obj.gridPtsX
+                    if rn(1) <= obj.spreadProbX * obj.fuelAvailability(yThis, xRight)
                         if prospGrid(yThis, xRight) == 0
                             prospFire = [prospFire, [xRight; yThis]];
                             prospGrid(yThis, xRight) = 1;
@@ -97,8 +106,8 @@ classdef Fire < handle
                 end
 
                 % grid point to the bottom right
-                if rn(2) <= obj.spreadProbDiag
-                    if xThis < obj.gridPtsX && yThis < obj.gridPtsY
+                if xThis < obj.gridPtsX && yThis < obj.gridPtsY
+                    if rn(2) <= obj.spreadProbDiag * obj.fuelAvailability(yBottom, xRight)
                         if prospGrid(yBottom, xRight) == 0
                             prospFire = [prospFire, [xRight; yBottom]];
                             prospGrid(yBottom, xRight) = 1;
@@ -107,8 +116,8 @@ classdef Fire < handle
                 end
 
                 % grid point to the bottom
-                if rn(3) <= obj.spreadProbY
-                    if yThis < obj.gridPtsY
+                if yThis < obj.gridPtsY
+                    if rn(3) <= obj.spreadProbY * obj.fuelAvailability(yBottom, xThis)
                         if prospGrid(yBottom, xThis) == 0
                             prospFire = [prospFire, [xThis; yBottom]];
                             prospGrid(yBottom, xThis) = 1;
@@ -117,8 +126,8 @@ classdef Fire < handle
                 end
 
                 % grid point to the bottom left
-                if rn(4) <= obj.spreadProbDiag
-                    if yThis < obj.gridPtsY && xThis > 1
+                if yThis < obj.gridPtsY && xThis > 1
+                    if rn(4) <= obj.spreadProbDiag * obj.fuelAvailability(yBottom, xLeft)
                         if prospGrid(yBottom, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yBottom]];
                             prospGrid(yBottom, xLeft) = 1;
@@ -127,8 +136,8 @@ classdef Fire < handle
                 end
 
                 % grid point to the left
-                if rn(5) <= obj.spreadProbX
-                    if xThis > 1
+                if xThis > 1
+                    if rn(5) <= obj.spreadProbX * obj.fuelAvailability(yThis, xLeft)
                         if prospGrid(yThis, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yThis]];
                             prospGrid(yThis, xLeft) = 1;
@@ -137,8 +146,8 @@ classdef Fire < handle
                 end
 
                 % grid point to the top eft
-                if rn(6) <= obj.spreadProbDiag
-                    if yThis > 1 && xThis > 1
+                if yThis > 1 && xThis > 1
+                    if rn(6) <= obj.spreadProbDiag * obj.fuelAvailability(yTop, xLeft)
                         if prospGrid(yTop, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yTop]];
                             prospGrid(yTop, xLeft) = 1;
@@ -147,8 +156,8 @@ classdef Fire < handle
                 end
 
                 % grid point to the top
-                if rn(7) <= obj.spreadProbY
-                    if yThis > 1
+                if yThis > 1
+                    if rn(7) <= obj.spreadProbY * obj.fuelAvailability(yTop, xThis)
                         if prospGrid(yTop, xThis) == 0
                             prospFire = [prospFire, [xThis; yTop]];
                             prospGrid(yTop, xThis) = 1;
@@ -157,8 +166,8 @@ classdef Fire < handle
                 end
 
                 % grid point to the top right
-                if rn(8) <= obj.spreadProbDiag
-                    if yThis > 1 && xThis < obj.gridPtsX
+                if yThis > 1 && xThis < obj.gridPtsX
+                    if rn(8) <= obj.spreadProbDiag * obj.fuelAvailability(yTop, xRight)
                         if prospGrid(yTop, xRight) == 0
                             prospFire = [prospFire, [xRight; yTop]];
                             prospGrid(yTop, xRight) = 1;
@@ -196,6 +205,8 @@ classdef Fire < handle
                     break
                 end
             end
+
+            obj.fuelAvailability(gridY, gridX) = obj.fuelAvailability(gridY, gridX) * 0.1;
         end
     end
 end

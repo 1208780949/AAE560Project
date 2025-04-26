@@ -162,5 +162,14 @@ classdef Drone < handle
             obj.targetFireIndex = index;
             obj.statusStartTime = obj.base.currentTime;
         end
+
+        % include electricty used for in-progress flights at the end
+        function finalTally(obj)
+            if obj.status == "charging"
+                return
+            end
+
+            obj.base.powerUsed = obj.base.powerUsed + (obj.batterySize - obj.currentBattery) * obj.batteryVoltage * obj.swarmSize;
+        end
     end
 end

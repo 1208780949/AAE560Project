@@ -24,10 +24,10 @@ numHelicopters = 10; % number of helicopter fleets
 randNumber = rng(45325405, "twister"); % random number generator to make things repeatable
 
 timeStep = 1;
-finalTime = 3000;
+finalTime = 2000;
 
-enableDrone = 0;
-enableHelicopter = 1;
+enableDrone = 1;
+enableHelicopter = 0;
 
 baseX = [1.3442e3]; % base x locations
 baseY = [6.5729e3]; % base y locations
@@ -41,8 +41,8 @@ gridResY = mapSizeY / fireGridY; % m/grid
 halfGridResX = gridResX / 2; % calculating here to prevent looping through the same calc downstream
 halfGridResY = gridResY / 2;
 
-fireStartX = 800;
-fireStartY = 9900;
+fireStartX = [800, 900, 800, 900];
+fireStartY = [9900, 9900, 9800, 9800];
 % fireStartX = rand(1,1) * mapSizeX; % fire start location x, can be size (1,[1,inf))
 % fireStartY = rand(1,1) * mapSizeY; % fire start location y, can be size (1,[1,inf))
 fire = Fire(fireStartX, fireStartY, fireGridX, fireGridY, mapSizeX, mapSizeY, timeStep);
@@ -171,4 +171,40 @@ for i = 1:timeStep:finalTime
 
     pbaspect([1 1 1])
 
+end
+
+% final cost tally
+% drones
+if enableDrone
+
+    for i = 1:numBases
+        for j = 1:length(bases(i).activeDrones)
+            bases(i).activeDrones(j).finalTally();
+        end
+    end
+
+    disp("")
+    disp("---Drones---")
+    fprintf("Upfront Cost for Drones: %s $\n", regexprep(sprintf("%.2f", bases(1).upfrontCost),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+    fprintf("Fire Retardant Used: %s kg\n", regexprep(sprintf("%.2f", bases(1).retardantUsed),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+    fprintf("Fire Retardant Cost: %s $\n", regexprep(sprintf("%.2f", bases(1).getRetardantCost()),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+    fprintf("Electricity Used: %s kWh\n", regexprep(sprintf("%.2f", bases(1).powerUsed/1000),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+    fprintf("Electricity Cost: %s $\n", regexprep(sprintf("%.2f", bases(1).getElecCost()),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+    fprintf("Operational Cost: %s $\n", regexprep(sprintf("%.2f", bases(1).getOperationalCost()),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+    fprintf("Total Cost: %s $\n", regexprep(sprintf("%.2f", bases(1).getTotalCost()),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+end
+
+% helicopters
+if enableHelicopter
+
+    for i = 1:length(airport.activeHelicopters)
+        airport.activeHelicopters(i).finalTally()
+    end
+
+    disp("")
+    disp("---Helicopters---")
+    fprintf("Upfront Cost for Helicopters: %s $\n", regexprep(sprintf("%.2f", airport.upfrontCost),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+    fprintf("JetA Used: %s kg\n", regexprep(sprintf("%.2f", airport.fuelUsed),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+    fprintf("Operational Cost: %s $\n", regexprep(sprintf("%.2f", airport.operationalCost),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
+    fprintf("Total Cost: %s $\n", regexprep(sprintf("%.2f", airport.operationalCost + airport.upfrontCost),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
 end
