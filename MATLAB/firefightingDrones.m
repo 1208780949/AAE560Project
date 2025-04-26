@@ -24,13 +24,15 @@ numHelicopters = 10; % number of helicopter fleets
 randNumber = rng(45325405, "twister"); % random number generator to make things repeatable
 
 timeStep = 1;
-finalTime = 2000;
+finalTime = 5000;
 
 enableDrone = 1;
 enableHelicopter = 0;
 
 baseX = [1.3442e3]; % base x locations
 baseY = [6.5729e3]; % base y locations
+
+timeStepsPerRender = 10; % do this many time steps between rendering
 
 % ----------------
 %  initialization
@@ -41,8 +43,8 @@ gridResY = mapSizeY / fireGridY; % m/grid
 halfGridResX = gridResX / 2; % calculating here to prevent looping through the same calc downstream
 halfGridResY = gridResY / 2;
 
-fireStartX = [800, 900, 800, 900];
-fireStartY = [9900, 9900, 9800, 9800];
+fireStartX = [800, 900, 800, 900, 1000, 1000, 800, 900, 1000];
+fireStartY = [9900, 9900, 9800, 9800, 9900, 9800, 9700, 9700, 9700];
 % fireStartX = rand(1,1) * mapSizeX; % fire start location x, can be size (1,[1,inf))
 % fireStartY = rand(1,1) * mapSizeY; % fire start location y, can be size (1,[1,inf))
 fire = Fire(fireStartX, fireStartY, fireGridX, fireGridY, mapSizeX, mapSizeY, timeStep);
@@ -130,46 +132,48 @@ for i = 1:timeStep:finalTime
     %  rendering
     % -----------
     
-    figure(1)
-    clf
-    hold on
-    xlim([0 mapSizeX])
-    ylim([0 mapSizeY])
-
-    % draw lake
-    fill(lake.borderX, lake.borderY, "b")
-
-    for j = 1:fire.getNumPoint
-        x = fire.firePoints(1,j);
-        y = fire.firePoints(2,j);
-
-        xCenter = gridResX * x;
-        yCenter = gridResY * y;
-        xi = xCenter - halfGridResX;
-        xf = xCenter + halfGridResX;
-        yi = yCenter - halfGridResY;
-        yf = yCenter + halfGridResY;
-
-        fill([xi xf xf xi], [yi yi yf yf], "r")
-    end
-
-    for j = 1:numBases
-        plot(bases(j).x, bases(j).y, "o", "Color", "blue", "MarkerSize", 5)
-        for k = 1:length(bases(j).activeDrones)
-            drone = bases(j).activeDrones(k);
-            plot(drone.x, drone.y, "x", "Color", "black", "MarkerSize", 3)
+    if rem(i, timeStep * timeStepsPerRender) == 0
+        figure(1)
+        clf
+        hold on
+        xlim([0 mapSizeX])
+        ylim([0 mapSizeY])
+    
+        % draw lake
+        fill(lake.borderX, lake.borderY, "b")
+    
+        for j = 1:fire.getNumPoint
+            x = fire.firePoints(1,j);
+            y = fire.firePoints(2,j);
+    
+            xCenter = gridResX * x;
+            yCenter = gridResY * y;
+            xi = xCenter - halfGridResX;
+            xf = xCenter + halfGridResX;
+            yi = yCenter - halfGridResY;
+            yf = yCenter + halfGridResY;
+    
+            fill([xi xf xf xi], [yi yi yf yf], "r")
         end
-    end
-
-    if enableHelicopter
-        plot(airport.x, airport.y, "o", "Color", "blue", "MarkerSize", 10)
-        for j = 1:length(airport.activeHelicopters)
-            heli = airport.activeHelicopters(j);
-            plot(heli.x, heli.y, "x", "Color", "black", "MarkerSize", 6)
+    
+        for j = 1:numBases
+            plot(bases(j).x, bases(j).y, "o", "Color", "blue", "MarkerSize", 5)
+            for k = 1:length(bases(j).activeDrones)
+                drone = bases(j).activeDrones(k);
+                plot(drone.x, drone.y, "x", "Color", "black", "MarkerSize", 3)
+            end
         end
+    
+        if enableHelicopter
+            plot(airport.x, airport.y, "o", "Color", "blue", "MarkerSize", 10)
+            for j = 1:length(airport.activeHelicopters)
+                heli = airport.activeHelicopters(j);
+                plot(heli.x, heli.y, "x", "Color", "black", "MarkerSize", 6)
+            end
+        end
+    
+        pbaspect([1 1 1])
     end
-
-    pbaspect([1 1 1])
 
 end
 
