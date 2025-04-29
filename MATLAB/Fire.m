@@ -20,6 +20,12 @@ classdef Fire < handle
         spreadRateScaling = 0.5 % a scaling factor to customize spread rate
     end
 
+    events
+        FireStarted
+        FireSpread
+        FireExtinguished
+    end
+
     methods
         % x: fire start location(s) in x
         % y: fire start location(s) in y
@@ -62,8 +68,22 @@ classdef Fire < handle
 
             % fuel availability
             obj.fuelAvailability = ones(gridPtsY, gridPtsX);
-        end
+               
+            %emit a signal to other objects that a fire has started
+            firstGridX = obj.firePoints(1,1);
+            firstGridY = obj.firePoints(2,1);
+            location = obj.getGridCenterPoint(firstGridX, firstGridY);
 
+            notify(obj, 'FireStarted', FireEventData(location));
+
+        end
+       
+        %function to allow the fire to send the location during a
+        %FireStarted event
+        function data = FireEventData(location) 
+            data.Location = location;
+        end
+        
         % return the number of grid points the fire occupies
         function numPoint = getNumPoint(obj)
             numPoint = length(obj.firePoints(1,:));
@@ -83,6 +103,7 @@ classdef Fire < handle
 
             prospFire = obj.firePoints; % all fire locations after combining the new ones
             prospGrid = obj.grid; 
+            newFire = false; %added boolean argument which will switch on and off when an existing fire spreads to a new cell to emit a signal
 
             for i = 1:length(obj.firePoints(1,:))
                 rn = rand(1,8); % rng used to decide fire spread
@@ -101,6 +122,9 @@ classdef Fire < handle
                         if prospGrid(yThis, xRight) == 0
                             prospFire = [prospFire, [xRight; yThis]];
                             prospGrid(yThis, xRight) = 1;
+                            newFire = true;
+                            location = obj.getGridCenterPoint(xRight, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location));
                         end
                     end
                 end
@@ -111,6 +135,9 @@ classdef Fire < handle
                         if prospGrid(yBottom, xRight) == 0
                             prospFire = [prospFire, [xRight; yBottom]];
                             prospGrid(yBottom, xRight) = 1;
+                            newFire = true;
+                            location = obj.getGridCenterPoint(xRight, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location));
                         end
                     end
                 end
@@ -121,6 +148,9 @@ classdef Fire < handle
                         if prospGrid(yBottom, xThis) == 0
                             prospFire = [prospFire, [xThis; yBottom]];
                             prospGrid(yBottom, xThis) = 1;
+                            newFire = true;
+                            location = obj.getGridCenterPoint(xRight, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location));
                         end
                     end
                 end
@@ -131,6 +161,9 @@ classdef Fire < handle
                         if prospGrid(yBottom, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yBottom]];
                             prospGrid(yBottom, xLeft) = 1;
+                            newFire = true;
+                            location = obj.getGridCenterPoint(xRight, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location));
                         end
                     end
                 end
@@ -141,6 +174,9 @@ classdef Fire < handle
                         if prospGrid(yThis, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yThis]];
                             prospGrid(yThis, xLeft) = 1;
+                            newFire = true;
+                            location = obj.getGridCenterPoint(xRight, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location));
                         end
                     end
                 end
@@ -151,6 +187,9 @@ classdef Fire < handle
                         if prospGrid(yTop, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yTop]];
                             prospGrid(yTop, xLeft) = 1;
+                            newFire = true;
+                            location = obj.getGridCenterPoint(xRight, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location));
                         end
                     end
                 end
@@ -161,6 +200,9 @@ classdef Fire < handle
                         if prospGrid(yTop, xThis) == 0
                             prospFire = [prospFire, [xThis; yTop]];
                             prospGrid(yTop, xThis) = 1;
+                            newFire = true;
+                            location = obj.getGridCenterPoint(xRight, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location));
                         end
                     end
                 end
@@ -171,6 +213,10 @@ classdef Fire < handle
                         if prospGrid(yTop, xRight) == 0
                             prospFire = [prospFire, [xRight; yTop]];
                             prospGrid(yTop, xRight) = 1;
+                            newFire = true;
+                            location = obj.getGridCenterPoint(xRight, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location));
+
                         end
                     end
                 end
@@ -184,6 +230,7 @@ classdef Fire < handle
             % likely
             obj.firePoints = prospFire;
             obj.grid = prospGrid;
+        
         end
     
         function center = getGridCenterPoint(obj, x, y)
@@ -202,6 +249,7 @@ classdef Fire < handle
                 col = obj.firePoints(:,i);
                 if col == [gridX; gridY]
                     obj.firePoints(:,i) = [];
+                    notify(obj, 'FireExtinguished');
                     break
                 end
             end
