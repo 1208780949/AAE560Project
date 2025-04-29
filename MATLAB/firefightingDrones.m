@@ -32,6 +32,7 @@ enableHelicopter = 0;
 baseX = [1.3442e3]; % base x locations
 baseY = [6.5729e3]; % base y locations
 
+
 timeStepsPerRender = 10; % do this many time steps between rendering
 
 % ----------------
@@ -42,12 +43,16 @@ gridResX = mapSizeX / fireGridX; % m/grid
 gridResY = mapSizeY / fireGridY; % m/grid
 halfGridResX = gridResX / 2; % calculating here to prevent looping through the same calc downstream
 halfGridResY = gridResY / 2;
+city = City(mapSizeX, mapSizeY);
 
-fireStartX = [800, 900, 800, 900, 1000, 1000, 800, 900, 1000];
-fireStartY = [9900, 9900, 9800, 9800, 9900, 9800, 9700, 9700, 9700];
-% fireStartX = rand(1,1) * mapSizeX; % fire start location x, can be size (1,[1,inf))
-% fireStartY = rand(1,1) * mapSizeY; % fire start location y, can be size (1,[1,inf))
+
+fireStartX = [800, 900, 800, 900, 1000, 1000, 800, 900, 1000, 9900, 8900, 4000, 8000];
+fireStartY = [9900, 9900, 9800, 9800, 9900, 9800, 9700, 9700, 9700, 500, 1000, 7500, 8000];
+%fireStartX = rand(1,1) * mapSizeX; % fire start location x, can be size (1,[1,inf))
+%fireStartY = rand(1,1) * mapSizeY; % fire start location y, can be size (1,[1,inf))
 fire = Fire(fireStartX, fireStartY, fireGridX, fireGridY, mapSizeX, mapSizeY, timeStep);
+city.attachFireListener(fire);
+
 
 lakeX = 9000;
 lakeY = 9000;
@@ -88,7 +93,7 @@ if enableHelicopter
         helicopters(i) = Helicopter(timeStep, lakeX, lakeY);
     end
 
-    airport = Airport(mapSizeX/2, 6000, helicopters);
+    airport = Airport(5200, 4800, helicopters);
     airport.setFire(fire)
 
     for i = 1:numHelicopters
@@ -103,7 +108,7 @@ end
 for i = 1:timeStep:finalTime
 
     fire.fireSpread();
-
+    city.update(fire, 1);
     for j = 1:numBases
         bases(j).update(i)
         for k = 1:length(bases(j).activeDrones)
@@ -138,7 +143,10 @@ for i = 1:timeStep:finalTime
         hold on
         xlim([0 mapSizeX])
         ylim([0 mapSizeY])
-    
+        
+        %plot city limits and grids
+        city.plotCityStatus(fire)
+
         % draw lake
         fill(lake.borderX, lake.borderY, "b")
     
@@ -174,7 +182,6 @@ for i = 1:timeStep:finalTime
     
         pbaspect([1 1 1])
     end
-
 end
 
 % final cost tally
