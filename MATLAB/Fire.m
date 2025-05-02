@@ -73,17 +73,13 @@ classdef Fire < handle
             firstGridX = obj.firePoints(1,1);
             firstGridY = obj.firePoints(2,1);
             location = obj.getGridCenterPoint(firstGridX, firstGridY);
+            notify(obj, 'FireStarted', FireEventData(location, [firstGridX; firstGridY]));
 
-            notify(obj, 'FireStarted', FireEventData(location));
 
         end
        
         %function to allow the fire to send the location during a
         %FireStarted event
-        function data = FireEventData(location) 
-            data.Location = location;
-        end
-        
         % return the number of grid points the fire occupies
         function numPoint = getNumPoint(obj)
             numPoint = length(obj.firePoints(1,:));
@@ -123,8 +119,9 @@ classdef Fire < handle
                             prospFire = [prospFire, [xRight; yThis]];
                             prospGrid(yThis, xRight) = 1;
                             newFire = true;
-                            location = obj.getGridCenterPoint(xRight, yThis);
-                            notify(obj, 'FireStarted', FireEventData(location));
+                        location = obj.getGridCenterPoint(xRight, yThis);
+                        notify(obj, 'FireStarted', FireEventData(location, [xRight; yThis]));
+                    end
                         end
                     end
                 end
@@ -136,8 +133,9 @@ classdef Fire < handle
                             prospFire = [prospFire, [xRight; yBottom]];
                             prospGrid(yBottom, xRight) = 1;
                             newFire = true;
-                            location = obj.getGridCenterPoint(xRight, yThis);
-                            notify(obj, 'FireStarted', FireEventData(location));
+                            location = obj.getGridCenterPoint(xRight, yBottom);
+                            notify(obj, 'FireStarted', FireEventData(location, [xRight; yBottom]));
+
                         end
                     end
                 end
@@ -149,8 +147,8 @@ classdef Fire < handle
                             prospFire = [prospFire, [xThis; yBottom]];
                             prospGrid(yBottom, xThis) = 1;
                             newFire = true;
-                            location = obj.getGridCenterPoint(xRight, yThis);
-                            notify(obj, 'FireStarted', FireEventData(location));
+                            location = obj.getGridCenterPoint(xThis, yBottom);
+                            notify(obj, 'FireStarted', FireEventData(location, [xThis; yBottom]));
                         end
                     end
                 end
@@ -162,8 +160,8 @@ classdef Fire < handle
                             prospFire = [prospFire, [xLeft; yBottom]];
                             prospGrid(yBottom, xLeft) = 1;
                             newFire = true;
-                            location = obj.getGridCenterPoint(xRight, yThis);
-                            notify(obj, 'FireStarted', FireEventData(location));
+                            location = obj.getGridCenterPoint(xLeft, yBottom);
+                            notify(obj, 'FireStarted', FireEventData(location, [xLeft; yBottom]));
                         end
                     end
                 end
@@ -175,8 +173,8 @@ classdef Fire < handle
                             prospFire = [prospFire, [xLeft; yThis]];
                             prospGrid(yThis, xLeft) = 1;
                             newFire = true;
-                            location = obj.getGridCenterPoint(xRight, yThis);
-                            notify(obj, 'FireStarted', FireEventData(location));
+                            location = obj.getGridCenterPoint(xLeft, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location, [xLeft; yThis]));
                         end
                     end
                 end
@@ -188,8 +186,8 @@ classdef Fire < handle
                             prospFire = [prospFire, [xLeft; yTop]];
                             prospGrid(yTop, xLeft) = 1;
                             newFire = true;
-                            location = obj.getGridCenterPoint(xRight, yThis);
-                            notify(obj, 'FireStarted', FireEventData(location));
+                            location = obj.getGridCenterPoint(xLeft, yTop);
+                            notify(obj, 'FireStarted', FireEventData(location, [xLeft; yTop]));
                         end
                     end
                 end
@@ -201,8 +199,8 @@ classdef Fire < handle
                             prospFire = [prospFire, [xThis; yTop]];
                             prospGrid(yTop, xThis) = 1;
                             newFire = true;
-                            location = obj.getGridCenterPoint(xRight, yThis);
-                            notify(obj, 'FireStarted', FireEventData(location));
+                            location = obj.getGridCenterPoint(xThis, yTop);
+                            notify(obj, 'FireStarted', FireEventData(location, [xThis; yTop]));
                         end
                     end
                 end
@@ -214,14 +212,11 @@ classdef Fire < handle
                             prospFire = [prospFire, [xRight; yTop]];
                             prospGrid(yTop, xRight) = 1;
                             newFire = true;
-                            location = obj.getGridCenterPoint(xRight, yThis);
-                            notify(obj, 'FireStarted', FireEventData(location));
-
+                            location = obj.getGridCenterPoint(xRight, yTop);
+                            notify(obj, 'FireStarted', FireEventData(location, [xRight; yTop]));
                         end
                     end
                 end
-
-            end
         
             % Update existing fire
             % Doing this outside of the loop to prevent fire from spread
@@ -243,18 +238,25 @@ classdef Fire < handle
         function extinguish(obj, x, y)
             gridX = round(x / obj.domainX * obj.gridPtsX);
             gridY = round(y / obj.domainY * obj.gridPtsY);
-
             obj.grid(gridY, gridX) = 0;
             for i = 1:length(obj.firePoints(1,:))
                 col = obj.firePoints(:,i);
                 if col == [gridX; gridY]
                     obj.firePoints(:,i) = [];
-                    notify(obj, 'FireExtinguished');
+                    notify(obj, 'FireExtinguished', FireEventData([x, y], [gridX; gridY])); %update firemanager with extinguished grid point, regardless of what vehicle removed it
                     break
                 end
             end
 
             obj.fuelAvailability(gridY, gridX) = obj.fuelAvailability(gridY, gridX) * 0.1;
         end
+        function idx = getGridIndexAt(obj, location)
+            x = location(1);
+            y = location(2);
+            gridX = round(x / obj.domainX * obj.gridPtsX);
+            gridY = round(y / obj.domainY * obj.gridPtsY);
+            idx = [gridX; gridY];
+end
+
     end
 end

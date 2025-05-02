@@ -1,7 +1,8 @@
 classdef FireTruck < handle
     properties
-        Location %spawn location (city center)
-        TargetLocation %initial target location of fire grid
+        Location % spawn location (city center)
+        TargetLocation % initial target location of fire grid
+        TargetGridIndex % [gridX, gridY] index of the assigned fire grid
         Speed % [m/s]
         Status % 'Targeting', 'Extinguishing', 'Returning', 'Refueling'
         DispatchDelay % [seconds]
@@ -15,7 +16,7 @@ classdef FireTruck < handle
 
         WaterCapacity = 3785*11 % [Liters] total water capacity
         WaterRemaining = 3785*11 % [Liters] remaining water
-        WaterUsagePerGrid = 40800 % [Liters/fire extinguished]
+        WaterUsagePerGrid = 41635 % [Liters/fire extinguished]
 
         ExtinguishTime = 30 % [seconds] time to extinguish each fire grid
         ExtinguishTimer = 0 % [seconds]
@@ -26,7 +27,7 @@ classdef FireTruck < handle
 
     methods
 
-        %constructor function for FireTruck creation
+        % constructor function for FireTruck creation
         function obj = FireTruck(startLocation, targetLocation, dispatchDelay)
             obj.Location = startLocation;
             obj.TargetLocation = targetLocation;
@@ -35,7 +36,7 @@ classdef FireTruck < handle
             obj.TimeSinceDispatched = 0;
         end
 
-        %move truck toward fire grid target determined by City.m
+        % move truck toward fire grid target determined by City.m
         function moveTowardTarget(obj, dt)
             obj.TimeSinceDispatched = obj.TimeSinceDispatched + dt;
 
@@ -46,11 +47,11 @@ classdef FireTruck < handle
             direction = obj.TargetLocation - obj.Location;
             distance = norm(direction);
 
-            if distance < 1e-3 
+            if distance < 1e-3
                 obj.Location = obj.TargetLocation;
             else
                 step = obj.Speed * dt;
-                if step >= distance 
+                if step >= distance
                     moveDist = distance;
                     obj.Location = obj.TargetLocation;
                 else
@@ -59,7 +60,7 @@ classdef FireTruck < handle
                     obj.Location = obj.Location + direction * moveDist;
                 end
 
-                %update fuel usage
+                % update fuel usage
                 fuelUsedNow = moveDist * obj.FuelConsumptionRate;
                 obj.FuelRemaining = obj.FuelRemaining - fuelUsedNow;
                 obj.FuelUsed = obj.FuelUsed + fuelUsedNow;
@@ -72,12 +73,12 @@ classdef FireTruck < handle
             end
         end
 
-        %check if truck has arrived at its target
+        % check if truck has arrived at its target
         function arrived = isAtTarget(obj)
             arrived = norm(obj.Location - obj.TargetLocation) < 1;
         end
 
-        %search for nearby fire grid points
+        % search for nearby fire grid points
         function found = findNearbyFire(obj, fireObj, searchRadius)
             found = false;
             for i = 1:size(fireObj.firePoints,2)
@@ -88,20 +89,21 @@ classdef FireTruck < handle
                 dist = norm(firePos - obj.Location);
                 if dist <= searchRadius
                     obj.TargetLocation = firePos;
+                    obj.TargetGridIndex = [gridX, gridY];
                     found = true;
                     return
                 end
             end
         end
 
-        %refuel and refill water
+        % refuel and refill water
         function refuel(obj)
             obj.FuelRemaining = obj.FuelCapacity;
             obj.WaterRemaining = obj.WaterCapacity;
             obj.RefuelTimer = 0;
         end
 
-        %update truck speed depending on city zone
+        % update truck speed depending on city zone
         function updateSpeedBasedOnZone(obj, city)
             [zoneIdx, ~] = city.getZone(obj.Location);
 
