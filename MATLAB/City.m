@@ -8,15 +8,19 @@ classdef City < handle
         RoadVertices %intersection points, visual only now
         AirportLocation %location of airport within city
         CenterLocation %center location of the city
-        ZoneRadii %array of zone radii to determine truck response time and probability [m]
+        ZoneRadii =  [1000, 2500, 4500];%array of zone radii to determine truck response time and probability [m]
         ZoneSpeeds = [10, 15, 20];
-        ZoneDelays = [6, 15, 30];
+        ZoneDelays = [10, 30, 60];
         FireTrucks %allow city to store and determine firetruck data
-        MaxFireTrucks = 5; % Maximum number of trucks that can be deployed
+        MaxTruckGroups = 3; % Maximum number of trucks that can be deployed
         TotalFuelUsed = 0; % total fuel used across all trucks for calculating cost [Liters]
         FuelCost = 0.80; % [$/Liter] centralized fuel price, from the average diesel price per gallon in Tippecanoe county
         TotalFuelCost = 0; % [$] total cost across all trucks
         FireManager %allow the ability to pull fire data from the fire manager
+        TruckUnitCost = 800000; % USD per individual truck
+        TotalUpfrontCost = 0;   % Total capital cost of all truck groups
+        TotalWaterCost = 0;
+        TotalCost;
     end
 
     methods
@@ -27,7 +31,6 @@ classdef City < handle
             obj.FireTrucks = {};
             [obj.XRoads, obj.YRoads, obj.RoadVertices] = generateRoads(mapSizeX, mapSizeY, obj.BlockSize);
             obj.CenterLocation = [mapSizeX/2, mapSizeY/2]; %set location of city center 
-            obj.ZoneRadii = [1000, 2500, 4500]; %defines different city response zone radii 
             obj.FireManager = fireManager;
         end
 
@@ -39,27 +42,52 @@ classdef City < handle
 
         %function that responds to "FireStarted" signal
         function handleFireStarted(obj, event)
-            fireLocation = event.Location;
-            gridIndex = event.GridIndex;
-
-            [zoneIdx, ~] = obj.getZone(fireLocation);
-            if zoneIdx > length(obj.ZoneDelays)
-                delay = obj.ZoneDelays(end) + 5;
-            else
-                delay = obj.ZoneDelays(zoneIdx);
+            % Only proceed if we have room for more trucks
+            maxToAssign = obj.MaxTruckGroups - length(obj.FireTrucks);
+            if maxToAssign <= 0
+                return
             end
 
-            dispatchDelay = delay;
+            % Find all unassigned fires
+            fireObj = event.Source;
+            unassignedFires = struct('GridIndex', {}, 'Location', {}, 'Distance', {});
+            for i = 1:size(fireObj.firePoints, 2)
+                fx = fireObj.firePoints(1, i);
+                fy = fireObj.firePoints(2, i);
+                idx = obj.FireManager.getIndexFromPoint(fx, fy);  % Ensures scalar index
+                if all(~obj.FireManager.isAssigned(idx))
+                    loc = fireObj.getGridCenterPoint(fx, fy);
+                    dist = norm(loc - obj.CenterLocation);
+                    unassignedFires(end+1).GridIndex = idx;
+                    unassignedFires(end).Location = loc;
+                    unassignedFires(end).Distance = dist;
+                end
+            end
 
-            if ~obj.FireManager.isAssigned(gridIndex) && length(obj.FireTrucks) < obj.MaxFireTrucks
-                truck = FireTruck(obj.CenterLocation, fireLocation, dispatchDelay);
-                truck.TargetGridIndex = gridIndex;
-                obj.FireManager.addAssignment(gridIndex);
+            % Sort by proximity to city center
+            if isempty(unassignedFires)
+                return
+            end
+            [~, order] = sort([unassignedFires.Distance]);
+            unassignedFires = unassignedFires(order);
+
+            % Assign trucks to the top N unassigned fires
+            for i = 1:min(maxToAssign, length(unassignedFires))
+                fire = unassignedFires(i);
+                [zoneIdx, ~] = obj.getZone(fire.Location);
+                if zoneIdx > length(obj.ZoneDelays)
+                    delay = obj.ZoneDelays(end) + 5;
+                else
+                    delay = obj.ZoneDelays(zoneIdx);
+                end
+
+                truck = FireTruck(obj.CenterLocation, fire.Location, delay);
+                truck.TargetGridIndex = fire.GridIndex;
+                obj.FireManager.addAssignment(fire.GridIndex);
                 obj.addFireTruck(truck);
-            else
             end
         end
-        
+
         %update list of target-able fire points on fire-point extinguish
         function handleFireExtinguished(obj, event)
             gridIndex = event.GridIndex;
@@ -78,31 +106,6 @@ classdef City < handle
             zoneIdx = find(obj.ZoneRadii >= distanceFromCenter, 1, 'first');
             if isempty(zoneIdx)
                 zoneIdx = length(obj.ZoneRadii) + 1;
-            end
-        end
-        
-
-        function [found, gridIndex, location] = findUnassignedNearbyFire(obj, truck, fireObj, radius)
-            found = false;
-            gridIndex = [];
-            location = [];
-
-            for i = 1:size(fireObj.firePoints, 2)
-                fx = fireObj.firePoints(1,i);
-                fy = fireObj.firePoints(2,i);
-                fireLoc = fireObj.getGridCenterPoint(fx, fy);
-                dist = norm(fireLoc - truck.Location);
-                if dist <= radius
-                    idx = [fx; fy];
-                    assigned = obj.FireManager.isAssigned(idx);
-                    assignedToThisTruck = isequal(truck.TargetGridIndex', idx);
-                    if ~assigned || assignedToThisTruck
-                        found = true;
-                        gridIndex = idx;
-                        location = fireLoc;
-                        return
-                    end
-                end
             end
         end
 
@@ -128,18 +131,9 @@ classdef City < handle
                                     fireObj.extinguish(truck.TargetLocation(1), truck.TargetLocation(2));
                                     truck.WaterRemaining = truck.WaterRemaining - truck.WaterUsagePerGrid;
                                     obj.FireManager.removeAssignment(truck.TargetGridIndex);
-                                    [found, gridIndex, location] = obj.findUnassignedNearbyFire(truck, fireObj, 200);
-                                    if found
-                                        truck.Status = 'Targeting';
-                                        truck.ExtinguishTimer = 0;
-                                        truck.TargetLocation = location;
-                                        truck.TargetGridIndex = gridIndex;
-                                        obj.FireManager.addAssignment(gridIndex);
-                                    else
-                                        truck.TargetLocation = obj.CenterLocation;
-                                        truck.Status = 'Returning';
-                                        truck.TargetGridIndex = [];
-                                    end
+                                    truck.TargetLocation = obj.CenterLocation;
+                                    truck.Status = 'Returning';
+                                    truck.TargetGridIndex = [];
                                 else
                                     truck.TargetLocation = obj.CenterLocation;
                                     truck.Status = 'Returning';
@@ -148,8 +142,10 @@ classdef City < handle
 
                         case 'Returning'
                             if norm(truck.Location - obj.CenterLocation) < 5
-                                truck.Status = 'Refueling';
-                                truck.RefuelTimer = 0;
+                               truck.Status = 'Refueling';
+                               truck.RefuelTimer = 0;
+                               fuelNeeded = truck.FuelCapacity - truck.FuelRemaining;
+                               truck.RefuelTime = (fuelNeeded / truck.RefuelRate) + 30*8; %30 seconds to account for time to refill completely empty water tank
                             end
 
                         case 'Refueling'
@@ -158,65 +154,93 @@ classdef City < handle
                                 truck.refuel();
                                 obj.TotalFuelUsed = obj.TotalFuelUsed + truck.FuelUsed;
                                 obj.TotalFuelCost = obj.TotalFuelCost + truck.FuelUsed * obj.FuelCost;
-                                [found, gridIndex, location] = obj.findUnassignedNearbyFire(truck, fireObj, 200);
-
-                                % Testing this chunk to see if this helps
-                                % w/ retargeting behavior after refueling
-                                if ~isempty(truck.TargetGridIndex)
-                                    fireStillBurning = any(all(fireObj.firePoints' == truck.TargetGridIndex', 2));
-                                    if fireStillBurning
-                                        truck.Status = 'Targeting';
-                                        truck.ExtinguishTimer = 0;
-                                        truck.TargetLocation = fireObj.getGridCenterPoint(truck.TargetGridIndex(1), truck.TargetGridIndex(2));
-                                        return
-                                    end
-                                end
-                                if found %attempt to reassign target
-                                    truck.Status = 'Targeting';
-                                    truck.ExtinguishTimer = 0;
-                                    truck.TargetLocation = location;
-                                    truck.TargetGridIndex = gridIndex;
-                                    obj.FireManager.addAssignment(gridIndex);
-                                    truck.Status = 'Idle';
-                                    truck.TargetGridIndex = []; 
-                                else
-                                    truck.Status = 'Idle'; %otherwise idle
-                                end
+                                obj.TotalWaterCost = obj.TotalWaterCost + truck.WaterCapacity * truck.WaterCostRate;
+                                truck.Status = 'Idle';
+                                truck.TargetGridIndex = []; 
                             end
                     end
                 end
             end
 
-            % Debug: Print all currently assigned fire grid points and who holds them
-            %fprintf("[Debug] Assigned fire grid points and holders:\n");
-            for i = 1:size(obj.FireManager.AssignedFireIndices, 1)
-                idx = obj.FireManager.AssignedFireIndices(i,:);
-                holder = 'Unclaimed';
-                for t = 1:length(obj.FireTrucks)
-                    truck = obj.FireTrucks{t};
-                    if isequal(truck.TargetGridIndex', idx)
-                        holder = sprintf('Truck %d', t);
-                        break
-                    end
+            % Assign idle trucks to closest unassigned fires (city-center priority)
+            unassignedFires = struct('GridIndex', {}, 'Location', {}, 'Distance', {});
+            for i = 1:size(fireObj.firePoints, 2)
+                fx = fireObj.firePoints(1, i);
+                fy = fireObj.firePoints(2, i);
+                idx = [fx; fy];
+                if all(~obj.FireManager.isAssigned(idx))
+                    loc = fireObj.getGridCenterPoint(fx, fy);
+                    dist = norm(loc - obj.CenterLocation);
+                    unassignedFires(end+1).GridIndex = idx;
+                    unassignedFires(end).Location = loc;
+                    unassignedFires(end).Distance = dist;
                 end
-                %fprintf("  (%d, %d) — %s\n", idx(1), idx(2), holder);
-                                % Pass 2: redeploy idle trucks to any unassigned fires
-                for i = 1:length(obj.FireTrucks)
-                    truck = obj.FireTrucks{i};
-                    if strcmp(truck.Status, 'Idle')
-                        [found, gridIndex, location] = obj.findUnassignedNearbyFire(truck, fireObj, Inf);
-                        if found
-                            truck.Status = 'Targeting';
-                            truck.ExtinguishTimer = 0;
-                            truck.TargetLocation = location;
-                            truck.TargetGridIndex = gridIndex;
-                            obj.FireManager.addAssignment(gridIndex);
-                            %fprintf('[City] Redeploying idle Truck %d to (%d, %d)\n', i, gridIndex(1), gridIndex(2));
-                        end
-                    end
-                end
-
             end
+
+            % Sort fire grid points by distance to city center
+            [~, order] = sort([unassignedFires.Distance]);
+            unassignedFires = unassignedFires(order);
+
+            % Assign fires to idle trucks
+            fireIdx = 1;
+            for i = 1:length(obj.FireTrucks)
+                truck = obj.FireTrucks{i};
+                if strcmp(truck.Status, 'Idle') && fireIdx <= length(unassignedFires)
+                    target = unassignedFires(fireIdx);
+                    truck.Status = 'Targeting';
+                    truck.ExtinguishTimer = 0;
+                    truck.TargetLocation = target.Location;
+                    truck.TargetGridIndex = target.GridIndex;
+                    obj.FireManager.addAssignment(target.GridIndex);
+                    fireIdx = fireIdx + 1;
+                end
+            end
+        end
+
+
+        function calculateTotalUpfrontCost(obj)
+                totalTrucks = 0;
+                for i = 1:length(obj.FireTrucks)
+                    totalTrucks = totalTrucks + obj.FireTrucks{i}.TrucksPerGroup;
+                end
+                obj.TotalUpfrontCost = totalTrucks * obj.TruckUnitCost;
+        end
+
+        function printCostSummary(obj)
+            % Per-unit costs
+            upfrontPerTruck = 800000; % USD per individual truck
+            fuelRate = obj.FuelCost; % $/L
+            waterRate = 0.0150643;   % $/L
+        
+            % Total individual trucks
+            trucksPerGroup = obj.FireTrucks{1}.TrucksPerGroup;
+            totalTrucks = length(obj.FireTrucks) * trucksPerGroup;
+            totalUpfrontCost = upfrontPerTruck * totalTrucks;
+        
+            % Account for remaining fuel/water that wasn't restored
+            unreturnedFuel = 0;
+            unreturnedWater = 0;
+            for i = 1:length(obj.FireTrucks)
+                truck = obj.FireTrucks{i};
+                unreturnedFuel = unreturnedFuel + (truck.FuelCapacity - truck.FuelRemaining);
+                unreturnedWater = unreturnedWater + (truck.WaterCapacity - truck.WaterRemaining);
+            end
+        
+            % Add missing fuel/water cost to totals
+            finalFuelUsed = obj.TotalFuelUsed + unreturnedFuel;
+            finalFuelCost = finalFuelUsed * fuelRate;
+        
+            finalWaterCost = obj.TotalWaterCost + (unreturnedWater * waterRate);
+        
+            % Print summary
+            disp("---Fire Trucks---")
+            fprintf('Upfront truck cost:      $%.2f (%d trucks @ $%d each)\n', ...
+                totalUpfrontCost, totalTrucks, upfrontPerTruck);
+            fprintf('Total fuel used:          %.2f L — Fuel Cost: $%.2f\n', ...
+                finalFuelUsed, finalFuelCost);
+            fprintf('Total water cost:        $%.2f\n', finalWaterCost);
+            obj.TotalCost = totalUpfrontCost + finalFuelCost + finalWaterCost;
+            fprintf('TOTAL COST:              $%.2f\n', obj.TotalCost);
         end
 
         %plot the city grid, fire points, and truck location

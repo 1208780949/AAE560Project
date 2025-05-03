@@ -27,9 +27,6 @@ classdef Base < handle
 
     methods
         % constructor
-        % x: base x position in m
-        % y: base y position in m
-        % drones: list of drones belonging to this base
         function obj = Base(x, y, drones, fireManager)
             obj.x = x;
             obj.y = y;
@@ -57,9 +54,6 @@ classdef Base < handle
                 obj.activeToIdleDrones = [];
             end
 
-            % ** drone job assignment (make this the last action) **
-
-            % if there are no more idle drones left, skip task assignment            
             if isempty(obj.idleDrones)
                 return
             end
@@ -73,8 +67,6 @@ classdef Base < handle
                     firePoint = fire.firePoints(:,j);
                     gridIndex = [firePoint(1); firePoint(2)];
 
-                   % if this grid point has already been targeted by a
-                   % drone, skip this fire
                     if obj.FireManager.isAssigned(gridIndex)
                         continue
                     end
@@ -106,15 +98,13 @@ classdef Base < handle
             [~, loc] = ismember(index, obj.targetedFire);
             obj.targetedFire(loc) = [];
 
-            % update target list here
             for i = 1:length(obj.targetedFire)
                 j = obj.targetedFire(i);
                 if j > index
                     obj.targetedFire(i) = obj.targetedFire(i) - 1;
                 end
             end
-            
-            % update the target list tracked by the drone
+
             for i = 1:length(obj.activeDrones)
                 drone = obj.activeDrones(i);
                 if drone.targetFireIndex > index
@@ -124,7 +114,6 @@ classdef Base < handle
         end
 
         % a drone has finished its mission and charging
-        % it can be considered idle again
         function droneReady(obj, drone)
             obj.activeToIdleDrones = [obj.activeToIdleDrones drone];
         end

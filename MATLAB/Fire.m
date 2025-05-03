@@ -27,13 +27,6 @@ classdef Fire < handle
     end
 
     methods
-        % x: fire start location(s) in x
-        % y: fire start location(s) in y
-        % gridPtsX: number of grid points in x
-        % gridPtsY: number of grid points in y
-        % domainX: size of the domain in x in meters
-        % domainY: size of the domain in y in meters
-        % timeStep: time step size in s
         function obj = Fire(x, y, gridPtsX, gridPtsY, domainX, domainY, timeStep)
             obj.domainX = domainX;
             obj.domainY = domainY;
@@ -41,68 +34,42 @@ classdef Fire < handle
             obj.gridPtsY = gridPtsY;
             obj.timeStep = timeStep;
 
-            % grid resolution
             obj.gridResX = domainX / gridPtsX;
             obj.gridResY = domainY / gridPtsY;
 
-            % the initial grid point that the fire occupies
             for i = 1:length(x)
                 obj.firePoints(1,i) = round(x(i) ./ domainX * gridPtsX);
                 obj.firePoints(2,i) = round(y(i) ./ domainY * gridPtsY);
             end
 
-            % fire spread probability
-            % If time step is large, spread probability proportionately
-            % increases to keep spread rate consistent.
-            % If grid size is large, spread probability proportionately
-            % reduces to keep spread rate consistent.
             obj.spreadProbX = timeStep * obj.fireSpreadRate / obj.gridResX * obj.spreadRateScaling;
             obj.spreadProbY = timeStep * obj.fireSpreadRate / obj.gridResY * obj.spreadRateScaling;
             obj.spreadProbDiag = timeStep * obj.fireSpreadRate / sqrt(obj.gridResX^2 + obj.gridResY^2) * obj.spreadRateScaling;
 
-            % grid generation and inserting initial fire
             obj.grid = zeros(gridPtsY, gridPtsX);
             for i = 1:length(x)
                 obj.grid(round(y(i) ./ domainY * gridPtsY), round(x(i) ./ domainY * gridPtsY)) = 1;
             end
 
-            % fuel availability
             obj.fuelAvailability = ones(gridPtsY, gridPtsX);
-               
-            %emit a signal to other objects that a fire has started
+
             firstGridX = obj.firePoints(1,1);
             firstGridY = obj.firePoints(2,1);
             location = obj.getGridCenterPoint(firstGridX, firstGridY);
             notify(obj, 'FireStarted', FireEventData(location, [firstGridX; firstGridY]));
-
-
         end
-       
-        %function to allow the fire to send the location during a
-        %FireStarted event
-        % return the number of grid points the fire occupies
+
         function numPoint = getNumPoint(obj)
             numPoint = length(obj.firePoints(1,:));
         end
 
         function fireSpread(obj)
-            % Fire spread simulation is modified based on an ABM approach as
-            % used by https://ieeexplore.ieee.org/abstract/document/10132476.
-            % This paper does not claim the accuracy of the model, but
-            % it's simply enough for the purpose of modeling firefighting
-            % drones.
-            % 
-            % Modification include:
-            %  - Instead of using a forest map, we use a continuous forest.
-            %  - Instead of using a random spread rate, we use a validated
-            %    spread rate.
-
-            prospFire = obj.firePoints; % all fire locations after combining the new ones
-            prospGrid = obj.grid; 
-            newFire = false; %added boolean argument which will switch on and off when an existing fire spreads to a new cell to emit a signal
+            prospFire = obj.firePoints;
+            prospGrid = obj.grid;
+            newFire = false;
 
             for i = 1:length(obj.firePoints(1,:))
-                rn = rand(1,8); % rng used to decide fire spread
+                rn = rand(1,8);
 
                 xThis = obj.firePoints(1, i);
                 yThis = obj.firePoints(2, i);
@@ -112,21 +79,18 @@ classdef Fire < handle
                 yTop = yThis - 1;
                 yBottom = yThis + 1;
 
-                % grid point to the right
                 if xThis < obj.gridPtsX
                     if rn(1) <= obj.spreadProbX * obj.fuelAvailability(yThis, xRight)
                         if prospGrid(yThis, xRight) == 0
                             prospFire = [prospFire, [xRight; yThis]];
                             prospGrid(yThis, xRight) = 1;
                             newFire = true;
-                        location = obj.getGridCenterPoint(xRight, yThis);
-                        notify(obj, 'FireStarted', FireEventData(location, [xRight; yThis]));
-                    end
+                            location = obj.getGridCenterPoint(xRight, yThis);
+                            notify(obj, 'FireStarted', FireEventData(location, [xRight; yThis]));
                         end
                     end
                 end
 
-                % grid point to the bottom right
                 if xThis < obj.gridPtsX && yThis < obj.gridPtsY
                     if rn(2) <= obj.spreadProbDiag * obj.fuelAvailability(yBottom, xRight)
                         if prospGrid(yBottom, xRight) == 0
@@ -135,12 +99,10 @@ classdef Fire < handle
                             newFire = true;
                             location = obj.getGridCenterPoint(xRight, yBottom);
                             notify(obj, 'FireStarted', FireEventData(location, [xRight; yBottom]));
-
                         end
                     end
                 end
 
-                % grid point to the bottom
                 if yThis < obj.gridPtsY
                     if rn(3) <= obj.spreadProbY * obj.fuelAvailability(yBottom, xThis)
                         if prospGrid(yBottom, xThis) == 0
@@ -153,7 +115,6 @@ classdef Fire < handle
                     end
                 end
 
-                % grid point to the bottom left
                 if yThis < obj.gridPtsY && xThis > 1
                     if rn(4) <= obj.spreadProbDiag * obj.fuelAvailability(yBottom, xLeft)
                         if prospGrid(yBottom, xLeft) == 0
@@ -166,7 +127,6 @@ classdef Fire < handle
                     end
                 end
 
-                % grid point to the left
                 if xThis > 1
                     if rn(5) <= obj.spreadProbX * obj.fuelAvailability(yThis, xLeft)
                         if prospGrid(yThis, xLeft) == 0
@@ -179,7 +139,6 @@ classdef Fire < handle
                     end
                 end
 
-                % grid point to the top eft
                 if yThis > 1 && xThis > 1
                     if rn(6) <= obj.spreadProbDiag * obj.fuelAvailability(yTop, xLeft)
                         if prospGrid(yTop, xLeft) == 0
@@ -192,7 +151,6 @@ classdef Fire < handle
                     end
                 end
 
-                % grid point to the top
                 if yThis > 1
                     if rn(7) <= obj.spreadProbY * obj.fuelAvailability(yTop, xThis)
                         if prospGrid(yTop, xThis) == 0
@@ -205,7 +163,6 @@ classdef Fire < handle
                     end
                 end
 
-                % grid point to the top right
                 if yThis > 1 && xThis < obj.gridPtsX
                     if rn(8) <= obj.spreadProbDiag * obj.fuelAvailability(yTop, xRight)
                         if prospGrid(yTop, xRight) == 0
@@ -217,24 +174,16 @@ classdef Fire < handle
                         end
                     end
                 end
-        
-            % Update existing fire
-            % Doing this outside of the loop to prevent fire from spread
-            % everywhere in 1 time step
-            % This makes spreading to a grid surround by existing fire more
-            % likely
-            obj.firePoints = prospFire;
-            obj.grid = prospGrid;
-        
+
+                obj.firePoints = prospFire;
+                obj.grid = prospGrid;
+            end
         end
-    
+
         function center = getGridCenterPoint(obj, x, y)
             center = [x * obj.gridResX, y * obj.gridResY];
         end
 
-        % fire extinguished
-        % x: x position of the center of the grid in m
-        % y: y position of the center of the grid in m
         function extinguish(obj, x, y)
             gridX = round(x / obj.domainX * obj.gridPtsX);
             gridY = round(y / obj.domainY * obj.gridPtsY);
@@ -243,20 +192,25 @@ classdef Fire < handle
                 col = obj.firePoints(:,i);
                 if col == [gridX; gridY]
                     obj.firePoints(:,i) = [];
-                    notify(obj, 'FireExtinguished', FireEventData([x, y], [gridX; gridY])); %update firemanager with extinguished grid point, regardless of what vehicle removed it
+                    notify(obj, 'FireExtinguished', FireEventData([x, y], [gridX; gridY]));
                     break
                 end
             end
-
             obj.fuelAvailability(gridY, gridX) = obj.fuelAvailability(gridY, gridX) * 0.1;
         end
+
         function idx = getGridIndexAt(obj, location)
             x = location(1);
             y = location(2);
             gridX = round(x / obj.domainX * obj.gridPtsX);
             gridY = round(y / obj.domainY * obj.gridPtsY);
             idx = [gridX; gridY];
-end
+        end
 
+        % convert linear index to 2D grid index [x, y]
+        function gridIndex = getGridIndexFromLinear(obj, linearIndex)
+            [x, y] = ind2sub([obj.gridPtsX, obj.gridPtsY], linearIndex);
+            gridIndex = [x, y];
+        end
     end
 end

@@ -1,5 +1,9 @@
 classdef FireTruck < handle
     properties
+        % based on 2025 Spartan Water Tender
+
+        TrucksPerGroup = 8; % number of actual trucks represented by this object
+
         Location % spawn location (city center)
         TargetLocation % initial target location of fire grid
         TargetGridIndex % [gridX, gridY] index of the assigned fire grid
@@ -8,25 +12,29 @@ classdef FireTruck < handle
         DispatchDelay % [seconds]
         TimeSinceDispatched % [seconds]
 
-        FuelCapacity = 245*11 % [Liters] max fuel capacity
-        FuelRemaining = 245*11 % [Liters] remaining fuel
-        FuelConsumptionRate = (58.79E-5)*11 % [Liters/m] fuel usage per meter traveled (~4 mpg)
+        FuelCapacity
+        FuelRemaining
+        FuelConsumptionRate % [Liters/m] fuel usage per meter traveled (~4 mpg)
         FuelUsed = 0 % [Liters] cumulative fuel used by this truck
         RefuelCost = 0 % [USD] cumulative refuel cost
 
-        WaterCapacity = 3785*11 % [Liters] total water capacity
-        WaterRemaining = 3785*11 % [Liters] remaining water
-        WaterUsagePerGrid = 41635 % [Liters/fire extinguished]
-
-        ExtinguishTime = 30 % [seconds] time to extinguish each fire grid
+        WaterCapacity
+        WaterRemaining
+        WaterUsagePerGrid % [Liters/fire extinguished]
+        WaterCostRate = 0.0150643; % [$/L] water cost for commercial use in Indiana converted from $/1000gal to $/L
+        WaterRefillCost = 0; % [$] total cost of water refills
+        
+        PumpRate = 63.1 % [L/s]
+        ExtinguishTime % [seconds]
         ExtinguishTimer = 0 % [seconds]
 
-        RefuelTime = 20 % [seconds]
+        RefuelRate = 50 %[L/s]
+        RefuelTime % [seconds]
         RefuelTimer = 0 % [seconds]
+
     end
 
     methods
-
         % constructor function for FireTruck creation
         function obj = FireTruck(startLocation, targetLocation, dispatchDelay)
             obj.Location = startLocation;
@@ -34,6 +42,15 @@ classdef FireTruck < handle
             obj.Status = 'Targeting';
             obj.DispatchDelay = dispatchDelay;
             obj.TimeSinceDispatched = 0;
+
+            % Scale properties according to TrucksPerGroup
+            obj.FuelCapacity = 245 * obj.TrucksPerGroup;
+            obj.FuelRemaining = obj.FuelCapacity;
+            obj.FuelConsumptionRate = 58.79e-5 * obj.TrucksPerGroup; % ~4 mpg
+            obj.WaterCapacity = 3785 * obj.TrucksPerGroup;
+            obj.WaterRemaining = obj.WaterCapacity;
+            obj.WaterUsagePerGrid = obj.WaterCapacity; % all water used per fire grid
+            obj.ExtinguishTime = obj.WaterCapacity/(obj.TrucksPerGroup*obj.PumpRate);
         end
 
         % move truck toward fire grid target determined by City.m
@@ -97,11 +114,12 @@ classdef FireTruck < handle
         end
 
         % refuel and refill water
-        function refuel(obj)
-            obj.FuelRemaining = obj.FuelCapacity;
-            obj.WaterRemaining = obj.WaterCapacity;
-            obj.RefuelTimer = 0;
-        end
+            function refuel(obj)
+                obj.FuelRemaining = obj.FuelCapacity;
+                obj.WaterRemaining = obj.WaterCapacity;
+                obj.WaterRefillCost = obj.WaterRefillCost + obj.WaterCapacity * obj.WaterCostRate;
+                obj.RefuelTimer = 0;
+            end
 
         % update truck speed depending on city zone
         function updateSpeedBasedOnZone(obj, city)

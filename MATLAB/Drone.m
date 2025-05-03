@@ -19,7 +19,6 @@ classdef Drone < handle
     % Therefore, empty battery will take 106.56 minutes to charge.
     % That is 0.005 amp-hour/sec.
 
-
     properties
         % drone properties
         maxSpd = 20 % max speed in m/s

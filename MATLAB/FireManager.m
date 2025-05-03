@@ -1,32 +1,46 @@
 classdef FireManager < handle
     properties
-        AssignedFireIndices = zeros(0,2);
+        AssignedFireIndices = []; % List of scalar linear indices (from x, y)
+        GridX = 100; % Number of grid points in X
+        GridY = 100; % Number of grid points in Y
     end
 
     methods
-        %constructor for fire point manager list
-        function assigned = isAssigned(obj, gridIndex)
-            assigned = ismember(gridIndex', obj.AssignedFireIndices, 'rows');
-            if assigned
+        % Check if a linear index is already assigned
+        function assigned = isAssigned(obj, index)
+            if numel(index) == 2
+                index = obj.getIndexFromPoint(index(1), index(2));
+            end
+            assigned = ismember(index, obj.AssignedFireIndices);
+        end
+
+        % Add linear index to assigned list
+        function addAssignment(obj, index)
+            if numel(index) == 2
+                index = obj.getIndexFromPoint(index(1), index(2));
+            end
+            if ~obj.isAssigned(index)
+                obj.AssignedFireIndices = [obj.AssignedFireIndices; index];
             end
         end
 
-        %get fire point index, add to assigned list
-        function addAssignment(obj, gridIndex)
-            if ~obj.isAssigned(gridIndex)
-                obj.AssignedFireIndices = [obj.AssignedFireIndices; gridIndex'];
+        % Remove linear index from assigned list
+        function removeAssignment(obj, index)
+            if numel(index) == 2
+                index = obj.getIndexFromPoint(index(1), index(2));
             end
+            obj.AssignedFireIndices = setdiff(obj.AssignedFireIndices, index);
         end
 
-       %find points that have been extinguished that are marked as assigned
-       function removeAssignment(obj, gridIndex)
-        before = size(obj.AssignedFireIndices, 1);
-        obj.AssignedFireIndices = setdiff(obj.AssignedFireIndices, gridIndex', 'rows');
-        after = size(obj.AssignedFireIndices, 1);
-    if before == after
-    else
-    end
-end
+        % Convert grid coordinates to linear index
+        function index = getIndexFromPoint(obj, x, y)
+            index = (y - 1) * obj.GridX + x;
+        end
 
+        % Optional: set grid size for conversion
+        function setGridSize(obj, gridX, gridY)
+            obj.GridX = gridX;
+            obj.GridY = gridY;
+        end
     end
 end
