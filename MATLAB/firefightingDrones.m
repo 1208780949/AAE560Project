@@ -119,7 +119,7 @@ end
 
 for i = 1:timeStep:finalTime
 
-    fire.fireSpread();
+    fire.fireSpread(i);
     city.update(fire, 1);
     for j = 1:numBases
         bases(j).update(i)
