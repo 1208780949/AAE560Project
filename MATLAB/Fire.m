@@ -10,6 +10,10 @@ classdef Fire < handle
         timeStep % size of time step in s
         grid % the grid of fire. 1 is on fire, 0 is not on fire
         fuelAvailability = []; % grid of fuel availability, makes sure that fuel does not propagate to area that has already been burned too much
+        areaBurnedGrid % grid of area burned
+        areaBurnedSize % the number of grid points that has been burned
+        responseTime % a list of time it takes to extinguish fire
+        currentTime % current time
 
         % fire spread rate is based on:
         % https://ieeexplore.ieee.org/abstract/document/10416753?casa_token=6eWDrxQJJHAAAAAA:CEOCSbMLGT7UQrlsp3Gd5ybTtXECO3UZy2Qw3PyliRYWEVJHOle7f9_3I2cFqnd1LLpvKWLScIw
@@ -68,6 +72,9 @@ classdef Fire < handle
 
             % fuel availability
             obj.fuelAvailability = ones(gridPtsY, gridPtsX);
+
+            % grid burned
+            obj.areaBurnedGrid = zeros(gridPtsY, gridPtsX);
                
             %emit a signal to other objects that a fire has started
             firstGridX = obj.firePoints(1,1);
@@ -89,7 +96,7 @@ classdef Fire < handle
             numPoint = length(obj.firePoints(1,:));
         end
 
-        function fireSpread(obj)
+        function fireSpread(obj, currentTime)
             % Fire spread simulation is modified based on an ABM approach as
             % used by https://ieeexplore.ieee.org/abstract/document/10132476.
             % This paper does not claim the accuracy of the model, but
@@ -100,6 +107,8 @@ classdef Fire < handle
             %  - Instead of using a forest map, we use a continuous forest.
             %  - Instead of using a random spread rate, we use a validated
             %    spread rate.
+
+            obj.currentTime = currentTime;
 
             prospFire = obj.firePoints; % all fire locations after combining the new ones
             prospGrid = obj.grid; 
@@ -121,7 +130,7 @@ classdef Fire < handle
                     if rn(1) <= obj.spreadProbX * obj.fuelAvailability(yThis, xRight)
                         if prospGrid(yThis, xRight) == 0
                             prospFire = [prospFire, [xRight; yThis]];
-                            prospGrid(yThis, xRight) = 1;
+                            prospGrid(yThis, xRight) = currentTime;
                             newFire = true;
                             location = obj.getGridCenterPoint(xRight, yThis);
                             notify(obj, 'FireStarted', FireEventData(location));
@@ -134,7 +143,7 @@ classdef Fire < handle
                     if rn(2) <= obj.spreadProbDiag * obj.fuelAvailability(yBottom, xRight)
                         if prospGrid(yBottom, xRight) == 0
                             prospFire = [prospFire, [xRight; yBottom]];
-                            prospGrid(yBottom, xRight) = 1;
+                            prospGrid(yBottom, xRight) = currentTime;
                             newFire = true;
                             location = obj.getGridCenterPoint(xRight, yThis);
                             notify(obj, 'FireStarted', FireEventData(location));
@@ -147,7 +156,7 @@ classdef Fire < handle
                     if rn(3) <= obj.spreadProbY * obj.fuelAvailability(yBottom, xThis)
                         if prospGrid(yBottom, xThis) == 0
                             prospFire = [prospFire, [xThis; yBottom]];
-                            prospGrid(yBottom, xThis) = 1;
+                            prospGrid(yBottom, xThis) = currentTime;
                             newFire = true;
                             location = obj.getGridCenterPoint(xRight, yThis);
                             notify(obj, 'FireStarted', FireEventData(location));
@@ -160,7 +169,7 @@ classdef Fire < handle
                     if rn(4) <= obj.spreadProbDiag * obj.fuelAvailability(yBottom, xLeft)
                         if prospGrid(yBottom, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yBottom]];
-                            prospGrid(yBottom, xLeft) = 1;
+                            prospGrid(yBottom, xLeft) = currentTime;
                             newFire = true;
                             location = obj.getGridCenterPoint(xRight, yThis);
                             notify(obj, 'FireStarted', FireEventData(location));
@@ -173,7 +182,7 @@ classdef Fire < handle
                     if rn(5) <= obj.spreadProbX * obj.fuelAvailability(yThis, xLeft)
                         if prospGrid(yThis, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yThis]];
-                            prospGrid(yThis, xLeft) = 1;
+                            prospGrid(yThis, xLeft) = currentTime;
                             newFire = true;
                             location = obj.getGridCenterPoint(xRight, yThis);
                             notify(obj, 'FireStarted', FireEventData(location));
@@ -186,7 +195,7 @@ classdef Fire < handle
                     if rn(6) <= obj.spreadProbDiag * obj.fuelAvailability(yTop, xLeft)
                         if prospGrid(yTop, xLeft) == 0
                             prospFire = [prospFire, [xLeft; yTop]];
-                            prospGrid(yTop, xLeft) = 1;
+                            prospGrid(yTop, xLeft) = currentTime;
                             newFire = true;
                             location = obj.getGridCenterPoint(xRight, yThis);
                             notify(obj, 'FireStarted', FireEventData(location));
@@ -199,7 +208,7 @@ classdef Fire < handle
                     if rn(7) <= obj.spreadProbY * obj.fuelAvailability(yTop, xThis)
                         if prospGrid(yTop, xThis) == 0
                             prospFire = [prospFire, [xThis; yTop]];
-                            prospGrid(yTop, xThis) = 1;
+                            prospGrid(yTop, xThis) = currentTime;
                             newFire = true;
                             location = obj.getGridCenterPoint(xRight, yThis);
                             notify(obj, 'FireStarted', FireEventData(location));
@@ -212,7 +221,7 @@ classdef Fire < handle
                     if rn(8) <= obj.spreadProbDiag * obj.fuelAvailability(yTop, xRight)
                         if prospGrid(yTop, xRight) == 0
                             prospFire = [prospFire, [xRight; yTop]];
-                            prospGrid(yTop, xRight) = 1;
+                            prospGrid(yTop, xRight) = currentTime;
                             newFire = true;
                             location = obj.getGridCenterPoint(xRight, yThis);
                             notify(obj, 'FireStarted', FireEventData(location));
@@ -230,7 +239,8 @@ classdef Fire < handle
             % likely
             obj.firePoints = prospFire;
             obj.grid = prospGrid;
-        
+            obj.areaBurnedGrid = obj.areaBurnedGrid + prospGrid;
+            obj.areaBurnedSize = nnz(obj.areaBurnedGrid);
         end
     
         function center = getGridCenterPoint(obj, x, y)
@@ -244,6 +254,7 @@ classdef Fire < handle
             gridX = round(x / obj.domainX * obj.gridPtsX);
             gridY = round(y / obj.domainY * obj.gridPtsY);
 
+            obj.responseTime = [obj.responseTime obj.currentTime-obj.grid(gridY,gridX)];
             obj.grid(gridY, gridX) = 0;
             for i = 1:length(obj.firePoints(1,:))
                 col = obj.firePoints(:,i);
