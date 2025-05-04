@@ -212,5 +212,22 @@ classdef Fire < handle
             [x, y] = ind2sub([obj.gridPtsX, obj.gridPtsY], linearIndex);
             gridIndex = [x, y];
         end
+
+        function extinguishGridIndex(obj, gridX, gridY)
+        if obj.grid(gridY, gridX) == 1
+            obj.grid(gridY, gridX) = 0;
+            for i = 1:length(obj.firePoints(1,:))
+                col = obj.firePoints(:,i);
+                if isequal(col, [gridX; gridY])
+                    obj.firePoints(:,i) = [];
+                    location = obj.getGridCenterPoint(gridX, gridY);
+                    notify(obj, 'FireExtinguished', FireEventData(location, [gridX; gridY]));
+                    break
+                end
+            end
+        obj.fuelAvailability(gridY, gridX) = obj.fuelAvailability(gridY, gridX) * 0.1;
+    end
+end
+
     end
 end

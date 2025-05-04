@@ -174,7 +174,21 @@ classdef Helicopter < handle
 
                 if obj.extinguishingProgress >= obj.waterRequired
                     % if fire is extinguished, go back home
-                    obj.targetFire.extinguish(obj.targetX, obj.targetY)
+                    if numel(obj.targetFireIndex) == 1
+                        % Convert linear index to grid index using FireManager's grid size
+                        [x, y] = ind2sub([obj.FireManager.GridX, obj.FireManager.GridY], obj.targetFireIndex);
+                        gridIdx = [x; y];
+                    else
+                        gridIdx = obj.targetFireIndex;
+                    end
+                    
+                    center = obj.targetFire.getGridCenterPoint(gridIdx(1), gridIdx(2));
+                    obj.targetFire.extinguish(center(1), center(2));
+                    
+                    % Notify manager and airport
+                    obj.FireManager.removeAssignment(gridIdx);
+                    obj.airport.fireExtinguished(gridIdx);
+
                     obj.status = "return2base";
                     obj.targetX = obj.airport.x;
                     obj.targetY = obj.airport.y;

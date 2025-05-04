@@ -10,7 +10,7 @@ classdef City < handle
         CenterLocation %center location of the city
         ZoneRadii =  [1000, 2500, 4500];%array of zone radii to determine truck response time and probability [m]
         ZoneSpeeds = [10, 15, 20];
-        ZoneDelays = [10, 30, 60];
+        ZoneDelays = [50 100 200];
         FireTrucks %allow city to store and determine firetruck data
         MaxTruckGroups = 3; % Maximum number of trucks that can be deployed
         TotalFuelUsed = 0; % total fuel used across all trucks for calculating cost [Liters]
@@ -54,23 +54,23 @@ classdef City < handle
             for i = 1:size(fireObj.firePoints, 2)
                 fx = fireObj.firePoints(1, i);
                 fy = fireObj.firePoints(2, i);
-                idx = obj.FireManager.getIndexFromPoint(fx, fy);  % Ensures scalar index
+                idx = obj.FireManager.getIndexFromPoint(fx, fy);
                 if all(~obj.FireManager.isAssigned(idx))
                     loc = fireObj.getGridCenterPoint(fx, fy);
-                    dist = norm(loc - obj.CenterLocation);
+                    dist = norm(loc - obj.CenterLocation); % or use truck.Location if needed
                     unassignedFires(end+1).GridIndex = idx;
                     unassignedFires(end).Location = loc;
                     unassignedFires(end).Distance = dist;
                 end
             end
-
+            
             % Sort by proximity to city center
             if isempty(unassignedFires)
                 return
             end
             [~, order] = sort([unassignedFires.Distance]);
             unassignedFires = unassignedFires(order);
-
+            
             % Assign trucks to the top N unassigned fires
             for i = 1:min(maxToAssign, length(unassignedFires))
                 fire = unassignedFires(i);
@@ -80,12 +80,13 @@ classdef City < handle
                 else
                     delay = obj.ZoneDelays(zoneIdx);
                 end
-
+            
                 truck = FireTruck(obj.CenterLocation, fire.Location, delay);
                 truck.TargetGridIndex = fire.GridIndex;
                 obj.FireManager.addAssignment(fire.GridIndex);
                 obj.addFireTruck(truck);
             end
+
         end
 
         %update list of target-able fire points on fire-point extinguish
@@ -252,14 +253,6 @@ classdef City < handle
             colors = [0 1 0; 1 0.65 0; 1 0 0];
             for i = 1:length(obj.ZoneRadii)
                 viscircles(obj.CenterLocation, obj.ZoneRadii(i), 'LineStyle', '--', 'LineWidth', 0.5, 'Color', colors(i,:));
-                hold on;
-            end
-
-            for i = 1:size(fireObj.firePoints,2)
-                gridX = fireObj.firePoints(1,i);
-                gridY = fireObj.firePoints(2,i);
-                pos = fireObj.getGridCenterPoint(gridX, gridY);
-                plot(pos(1), pos(2), 'r*', 'MarkerSize', 10);
                 hold on;
             end
 
