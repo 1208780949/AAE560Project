@@ -12,7 +12,7 @@ classdef Base < handle
         activeDrones % list of drones performing some sort of action
         activeToIdleDrones % a list of drones that need to go from active to idle in the next time step
         fires % list of fires
-        targetedFire % list of fire grid pts that has already been targeted
+        targetedFire % list of fire grid pts that has already been targeted (local)
         currentTime % current time of simulation
         powerUsed = 0 % total power consumption in watt-hour
         retardantUsed = 0 % total retardant used in kg
@@ -21,18 +21,19 @@ classdef Base < handle
         % cost
         fireRetardantCost = 0.727; % fire retardant cost $/kg
         elecCost = 0.02684; % $/kWh
+
+        FireManager % shared fire assignment tracker
     end
 
     methods
         % constructor
-        % x: base x position in m
-        % y: base y position in m
-        % drones: list of drones belonging to this base
-        function obj = Base(x, y, drones)
+        function obj = Base(x, y, drones, fireManager)
             obj.x = x;
             obj.y = y;
             obj.idleDrones = drones;
             obj.activeDrones = Drone.empty(0, length(drones));
+            obj.FireManager = fireManager;
+            obj.targetedFire = []; % still used locally for fire index management
         end
 
         % update list of fires
@@ -40,15 +41,11 @@ classdef Base < handle
             obj.fires = [obj.fires fire];
         end
 
-        % update the base
-        % responsible for mission assignment
+        % update the base: responsible for mission assignment
         function update(obj, currentTime)
-
-            % update time
             obj.currentTime = currentTime;
 
-            % ** turn applicable active drones to idle drones **
-
+            % move drones from activeToIdle to idle
             if ~isempty(obj.activeToIdleDrones)
                 for i = 1:length(obj.activeToIdleDrones)
                     obj.activeDrones(obj.activeDrones == obj.activeToIdleDrones(i)) = [];
@@ -57,9 +54,6 @@ classdef Base < handle
                 obj.activeToIdleDrones = [];
             end
 
-            % ** drone job assignment (make this the last action) **
-
-            % if there are no more idle drones left, skip task assignment
             if isempty(obj.idleDrones)
                 return
             end
@@ -67,14 +61,13 @@ classdef Base < handle
             stateChangeDrones = Drone.empty(0, 0);
 
             for i = 1:length(obj.fires)
-
                 fire = obj.fires(i);
 
                 for j = 1:fire.getNumPoint
+                    firePoint = fire.firePoints(:,j);
+                    gridIndex = [firePoint(1); firePoint(2)];
 
-                    if ismember(j, obj.targetedFire)
-                        % if this grid point has already been targeted by a
-                        % drone, skip this fire
+                    if obj.FireManager.isAssigned(gridIndex)
                         continue
                     end
 
@@ -82,31 +75,29 @@ classdef Base < handle
                         break
                     end
 
-                    firePoint = fire.firePoints(:,j);
-
                     drone = obj.idleDrones(length(stateChangeDrones) + 1);
                     gridCenter = fire.getGridCenterPoint(firePoint(1), firePoint(2));
                     drone.statusChangeFlight2Target(gridCenter(1), gridCenter(2), fire, j);
+
                     obj.activeDrones = [obj.activeDrones drone];
                     stateChangeDrones = [stateChangeDrones drone];
+                    obj.FireManager.addAssignment(gridIndex);
                     obj.targetedFire = [obj.targetedFire j];
                 end
             end
-            
+
             if ~isempty(stateChangeDrones)
                 for i = 1:length(stateChangeDrones)
                     obj.idleDrones(obj.idleDrones == stateChangeDrones(i)) = [];
                 end
             end
-
         end
-    
+
         % fire extinguished. Remove the index from targetedFire array
         function fireExtinguished(obj, index)
             [~, loc] = ismember(index, obj.targetedFire);
             obj.targetedFire(loc) = [];
 
-            % update target list here
             for i = 1:length(obj.targetedFire)
                 j = obj.targetedFire(i);
                 if j > index
@@ -114,7 +105,6 @@ classdef Base < handle
                 end
             end
 
-            % update the target list tracked by the drone
             for i = 1:length(obj.activeDrones)
                 drone = obj.activeDrones(i);
                 if drone.targetFireIndex > index
@@ -122,9 +112,8 @@ classdef Base < handle
                 end
             end
         end
-    
+
         % a drone has finished its mission and charging
-        % it can be considered idle again
         function droneReady(obj, drone)
             obj.activeToIdleDrones = [obj.activeToIdleDrones drone];
         end

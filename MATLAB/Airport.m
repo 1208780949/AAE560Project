@@ -6,11 +6,11 @@ classdef Airport < handle
         activeHelicopters % list of drones performing some sort of action
         activeToIdleHelis % a list of drones that need to go from active to idle in the next time step
         fires % list of fires
-        targetedFire % list of fire grid pts that has already been targeted
         currentTime % current time of simulation
         fuelUsed = 0 % total power consumption in watt-hour
         operationalCost = 0 % total retardant used in kg
         upfrontCost = 0 % cost for equipment in USD
+        FireManager % reference to the centralized FireManager
     end
 
     methods
@@ -28,6 +28,11 @@ classdef Airport < handle
         % update list of fires
         function setFire(obj, fire)
             obj.fires = [obj.fires fire];
+        end
+
+        % set the shared FireManager
+        function setFireManager(obj, fm)
+            obj.FireManager = fm;
         end
 
         % update the base
@@ -62,9 +67,10 @@ classdef Airport < handle
 
                 for j = 1:fire.getNumPoint
 
-                    if ismember(j, obj.targetedFire)
-                        % if this grid point has already been targeted by a
-                        % drone, skip this fire
+                    firePoint = fire.firePoints(:,j);
+                    idx = obj.FireManager.getIndexFromPoint(firePoint(1), firePoint(2));
+
+                    if obj.FireManager.isAssigned(idx)
                         continue
                     end
 
@@ -72,17 +78,15 @@ classdef Airport < handle
                         break
                     end
 
-                    firePoint = fire.firePoints(:,j);
-
                     drone = obj.idleHelicopters(length(stateChangeHelis) + 1);
                     gridCenter = fire.getGridCenterPoint(firePoint(1), firePoint(2));
-                    drone.statusChangeFlight2Prep(fire, j, gridCenter(1), gridCenter(2));
+                    drone.statusChangeFlight2Prep(fire, idx, gridCenter(1), gridCenter(2));
                     obj.activeHelicopters = [obj.activeHelicopters drone];
                     stateChangeHelis = [stateChangeHelis drone];
-                    obj.targetedFire = [obj.targetedFire j];
+                    obj.FireManager.addAssignment(idx);
                 end
             end
-            
+
             if ~isempty(stateChangeHelis)
                 for i = 1:length(stateChangeHelis)
                     obj.idleHelicopters(obj.idleHelicopters == stateChangeHelis(i)) = [];
@@ -90,29 +94,12 @@ classdef Airport < handle
             end
 
         end
-    
-        % fire extinguished. Remove the index from targetedFire array
-        function fireExtinguished(obj, index)
-            [~, loc] = ismember(index, obj.targetedFire);
-            obj.targetedFire(loc) = [];
 
-            % update target list here
-            for i = 1:length(obj.targetedFire)
-                j = obj.targetedFire(i);
-                if j > index
-                    obj.targetedFire(i) = obj.targetedFire(i) - 1;
-                end
-            end
-
-            % update the target list tracked by the drone
-            for i = 1:length(obj.activeHelicopters)
-                drone = obj.activeHelicopters(i);
-                if drone.targetFireIndex > index
-                    drone.targetFireIndex = drone.targetFireIndex - 1;
-                end
-            end
+        % fire extinguished
+        function fireExtinguished(obj, ~)
+            % FireManager now handles all targeting status
         end
-    
+
         % a drone has finished its mission and charging
         % it can be considered idle again
         function heliReady(obj, helicopter)

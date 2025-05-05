@@ -1,13 +1,14 @@
 classdef FireEventData < event.EventData
     properties
-        Location % [x, y] coordinates of generated fire grid
+        Location   % [x, y] coordinates of generated fire grid
+        GridIndex  % [i, j] index in the fire grid
     end
 
     methods
-        %function to allow the fire to send the location during a
-        %FireStarted event
-        function data = FireEventData(location)
+        % constructor accepting location and grid index
+        function data = FireEventData(location, gridIndex)
             data.Location = location;
+            data.GridIndex = gridIndex;
         end
     end
 end
