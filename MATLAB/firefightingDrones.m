@@ -195,9 +195,9 @@ for i = 1:timeStep:finalTime
     %             plot(heli.x, heli.y, "x", "Color", "black", "MarkerSize", 6)
     %         end
     %     end
-
-        pbaspect([1 1 1])
-    end
+    %
+    %  pbaspect([1 1 1])
+    % end
 end
 
 % final cost tally
