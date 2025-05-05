@@ -245,7 +245,7 @@ classdef City < handle
         end
 
         %plot the city grid, fire points, and truck location
-        function plotCityStatus(obj, fireObj)
+        function plotCityStatus(obj)
             plot(obj.XRoads, obj.YRoads, 'k-', 'LineWidth', 0.5);
             hold on;
             scatter(obj.RoadVertices(:,1), obj.RoadVertices(:,2), 25, [0.5 0.5 0.5], 'filled', 'MarkerFaceAlpha', 0.3);

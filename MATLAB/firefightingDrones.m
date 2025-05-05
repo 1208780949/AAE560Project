@@ -21,7 +21,8 @@ numBases = 1; % number of bases
 numDronesPerBase = 10; % number of drones per base
 numHelicopters = 10; % number of helicopter fleets
 
-randNumber = rng(987531, "twister"); % random number generator to make things repeatable
+%% EDIT THIS TO RANDOMIZE INITIAL FIRE POINT LOCATION
+randNumber = rng(681378, "twister"); % random number generator to make things repeatable
 
 timeStep = 1;
 finalTime = 5000;
@@ -41,6 +42,7 @@ timeStepsPerRender = 10; % do this many time steps between rendering
 
 gridResX = mapSizeX / fireGridX; % m/grid
 gridResY = mapSizeY / fireGridY; % m/grid
+fireArea = gridResX*gridResY/1000; %km^2/grid
 halfGridResX = gridResX / 2; % calculating here to prevent looping through the same calc downstream
 halfGridResY = gridResY / 2;
 fireManager = FireManager();
@@ -59,7 +61,6 @@ for i = 1:size(fire.firePoints, 2)
     location = fire.getGridCenterPoint(gridX, gridY);
     notify(fire, 'FireStarted', FireEventData(location, [gridX; gridY]));
 end
-
 
 lakeX = 9000;
 lakeY = 9000;
@@ -117,6 +118,7 @@ end
 %  running simulation
 % --------------------
 
+%% CREATE A LARGER LOOP AROUND THIS STEP FOR j = 1:10 and inject
 for i = 1:timeStep:finalTime
 
     fire.fireSpread(i);
@@ -142,13 +144,15 @@ for i = 1:timeStep:finalTime
     end
 
     for j = 1:fire.getNumPoint
-        
+    containmentTime = i;
     end
 
     % -----------
     %  rendering
     % -----------
-    
+   
+    %% UNCOMMENT TO GET PLOT/RENDER
+   
     % if rem(i, timeStep * timeStepsPerRender) == 0
     %     figure(1)
     %     clf
@@ -157,7 +161,7 @@ for i = 1:timeStep:finalTime
     %     ylim([0 mapSizeY])
     % 
     %     %plot city limits and grids
-    %     city.plotCityStatus(fire)
+    %     city.plotCityStatus()
     % 
     %     % draw lake
     %     fill(lake.borderX, lake.borderY, "b")
@@ -191,9 +195,9 @@ for i = 1:timeStep:finalTime
     %             plot(heli.x, heli.y, "x", "Color", "black", "MarkerSize", 6)
     %         end
     %     end
-    % 
-    %     pbaspect([1 1 1])
-    % end
+
+        pbaspect([1 1 1])
+    end
 end
 
 % final cost tally
@@ -217,6 +221,9 @@ if enableDrone
     fprintf("TOTAL COST:              $%s \n\n", regexprep(sprintf("%.2f", bases(1).getTotalCost()),'(?<!\.\d*)\d{1,3}(?=(\d{3})+\>)','$&,'))
     city.printCostSummary();
     fprintf("\nGRAND TOTAL COST:              $%.2f", bases(1).getTotalCost()+city.TotalCost);
+    fprintf("\n\nTotal Area Burned: %.2f km^2",fire.areaBurnedSize*fireArea)
+    fprintf("\nAverage Response Time: %.2f minutes",mean(fire.responseTime)/60)
+    fprintf("\nTotal Containment Time: %.2f minutes",containmentTime/60)
 end
 
 % helicopters
@@ -235,6 +242,8 @@ if enableHelicopter
     disp("")
     city.printCostSummary();
     fprintf("\nGRAND TOTAL COST: $%.2f", airport.operationalCost+airport.upfrontCost+city.TotalCost)
-
+    fprintf("\n\nTotal Area Burned: %.2f km^2",fire.areaBurnedSize*fireArea)
+    fprintf("\nAverage Response Time: %.2f minutes",mean(fire.responseTime)/60)
+    fprintf("\nTotal Containment Time: %.2f minutes",containmentTime/60)
 end
     
