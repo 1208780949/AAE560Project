@@ -18,7 +18,7 @@ classdef City < handle
         TotalFuelCost = 0; % [$] total cost across all trucks
         FireManager %allow the ability to pull fire data from the fire manager
         TruckUnitCost = 800000; % USD per individual truck
-        TotalUpfrontCost = 0;   % Total capital cost of all truck groups
+        totalUpfrontCost;   % Total capital cost of all truck groups
         TotalWaterCost = 0;
         TotalCost;
     end
@@ -196,15 +196,6 @@ classdef City < handle
                     fireIdx = fireIdx + 1;
                 end
             end
-        end
-
-
-        function calculateTotalUpfrontCost(obj)
-                totalTrucks = 0;
-                for i = 1:length(obj.FireTrucks)
-                    totalTrucks = totalTrucks + obj.FireTrucks{i}.TrucksPerGroup;
-                end
-                obj.TotalUpfrontCost = totalTrucks * obj.TruckUnitCost;
         end
 
         function printCostSummary(obj)
