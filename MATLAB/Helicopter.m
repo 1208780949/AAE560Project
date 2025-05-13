@@ -50,7 +50,7 @@ classdef Helicopter < handle
         waterRequired = 8.1652e+04; % this much water is required to extinguish 1 grid of fire
         operatingCost = 2.15; % cost of operation per second
         minimumFuel % minimum fuel that will cause the helicopter to return to airport
-        
+
         % status
         x = 0;
         y = 0;
@@ -72,6 +72,9 @@ classdef Helicopter < handle
         fireX % target fire x position
         fireY % target fire y position
         takeoffTime % time when the helicopter took off each time
+
+        % fire manager reference
+        FireManager % reference to centralized FireManager
     end
 
     methods
@@ -94,6 +97,11 @@ classdef Helicopter < handle
 
             % track upfront cost
             airport.upfrontCost = airport.upfrontCost + obj.upfrontCost * obj.fleetSize;
+        end
+
+        % assign the fire manager reference
+        function setFireManager(obj, fm)
+            obj.FireManager = fm;
         end
 
         % update the drone
@@ -166,7 +174,21 @@ classdef Helicopter < handle
 
                 if obj.extinguishingProgress >= obj.waterRequired
                     % if fire is extinguished, go back home
-                    obj.targetFire.extinguish(obj.targetX, obj.targetY)
+                    if numel(obj.targetFireIndex) == 1
+                        % Convert linear index to grid index using FireManager's grid size
+                        [x, y] = ind2sub([obj.FireManager.GridX, obj.FireManager.GridY], obj.targetFireIndex);
+                        gridIdx = [x; y];
+                    else
+                        gridIdx = obj.targetFireIndex;
+                    end
+                    
+                    center = obj.targetFire.getGridCenterPoint(gridIdx(1), gridIdx(2));
+                    obj.targetFire.extinguish(center(1), center(2));
+                    
+                    % Notify manager and airport
+                    obj.FireManager.removeAssignment(gridIdx);
+                    obj.airport.fireExtinguished(gridIdx);
+
                     obj.status = "return2base";
                     obj.targetX = obj.airport.x;
                     obj.targetY = obj.airport.y;
@@ -176,6 +198,7 @@ classdef Helicopter < handle
 
                     % let base know
                     obj.airport.fireExtinguished(obj.targetFireIndex);
+                    obj.FireManager.removeAssignment(obj.targetFireIndex);
                 else
                     % go to the lake to refill water
                     obj.status = "flight2refill";
@@ -183,7 +206,7 @@ classdef Helicopter < handle
                     obj.targetY = obj.lakeY;
                     obj.statusStartTime = obj.airport.currentTime;
                 end
-                
+
                 % update fuel
                 obj.currentFuel = obj.currentFuel - (obj.airport.currentTime - obj.statusStartTime) * obj.fuelFlow;
 
@@ -240,6 +263,9 @@ classdef Helicopter < handle
             obj.taskFinishTime = obj.airport.currentTime + obj.crewPrepTime;
             obj.fireX = fireX;
             obj.fireY = fireY;
+
+            % add assignment to fire manager
+            obj.FireManager.addAssignment(index);
         end
 
         % include fuel used for in-progress flights at the end
